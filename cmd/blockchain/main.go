@@ -16,6 +16,7 @@ func main() {
 
 	blockchainCmd.AddCommand(versionCmd)
 	blockchainCmd.AddCommand(balancesCmd())
+	blockchainCmd.AddCommand(txCmd())
 
 	err := blockchainCmd.Execute()
 	if err != nil {
