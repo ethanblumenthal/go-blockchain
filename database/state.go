@@ -94,6 +94,10 @@ func (s *State) Persist() error {
 	return nil
 }
 
+func (s *State) Close() {
+	s.dbFile.Close()
+}
+
 func (s *State) apply(tx Tx) error {
 	if tx.IsReward() {
 		s.Balances[tx.To] += tx.Value

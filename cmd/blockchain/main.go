@@ -14,9 +14,16 @@ func main() {
 		Run: func(cmd *cobra.Command, args []string) {},
 	}
 
+	blockchainCmd.AddCommand(versionCmd)
+	blockchainCmd.AddCommand(balancesCmd())
+
 	err := blockchainCmd.Execute()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+func incorrectUsageErr() error {
+	return fmt.Errorf(("incorrect usage"))
 }
