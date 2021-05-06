@@ -8,13 +8,13 @@ import (
 )
 
 func main() {
-	var cmd = &cobra.Command{
-		Use: "goChain",
+	var blockchainCmd = &cobra.Command{
+		Use: "blockchain",
 		Short: "Golang blockchain CLI",
 		Run: func(cmd *cobra.Command, args []string) {},
 	}
 
-	err := cmd.Execute()
+	err := blockchainCmd.Execute()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
