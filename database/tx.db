@@ -1,5 +1,5 @@
-{"from":"andrej","to":"andrej","value":3,"data":""}
-{"from":"andrej","to":"andrej","value":700,"data":"reward"}
-{"from":"andrej","to":"babayaga","value":2000,"data":""}
-{"from":"andrej","to":"andrej","value":100,"data":"reward"}
-{"from":"babayaga","to":"andrej","value":1,"data":""}
+{"from":"ethan","to":"ethan","value":3,"data":""}
+{"from":"ethan","to":"ethan","value":700,"data":"reward"}
+{"from":"ethan","to":"carley","value":2000,"data":""}
+{"from":"ethan","to":"ethan","value":100,"data":"reward"}
+{"from":"carley","to":"ethan","value":1,"data":""}
