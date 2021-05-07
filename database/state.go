@@ -10,10 +10,10 @@ import (
 )
 
 type State struct {
-	Balances map[Account]uint
-	txMempool []Tx
-
-	dbFile *os.File
+	Balances        map[Account]uint
+	txMempool       []Tx
+	dbFile          *os.File
+	latestBlock     Block
 	latestBlockHash Hash
 }
 
@@ -40,7 +40,7 @@ func NewStateFromDisk(dataDir string) (*State, error) {
 	}
 
 	scanner := bufio.NewScanner(f)
-	state := &State{balances, make([]Tx, 0), f, Hash{}}
+	state := &State{balances, make([]Tx, 0), f, Block{}, Hash{}}
 
 	// Iterate over each the tx.db file's line
 	for scanner.Scan() {
@@ -64,9 +64,14 @@ func NewStateFromDisk(dataDir string) (*State, error) {
 			return nil, err
 		}
 		
+		state.latestBlock = blockFs.Value
 		state.latestBlockHash = blockFs.Key
 	}
 	return state, nil
+}
+
+func (s *State) LatestBlock() Block {
+	return s.latestBlock
 }
 
 func (s *State) LatestBlockHash() Hash {
@@ -95,8 +100,14 @@ func (s *State) AddTx(tx Tx) error {
 
 func (s *State) Persist() (Hash, error) {
 	// Creates a new block with ONLY the new TXs
+	latestBlockHash, err := s.latestBlock.Hash()
+	if err != nil {
+		return Hash{}, err
+	}
+
 	block := NewBlock(
-		s.latestBlockHash,
+		latestBlockHash,
+		s.latestBlock.Header.Number + 1,
 		uint64(time.Now().Unix()),
 		s.txMempool,
 	)
@@ -124,9 +135,11 @@ func (s *State) Persist() (Hash, error) {
 	s.latestBlockHash = blockHash
 
 	// Reset the mempool
+	s.latestBlock = block
+	s.latestBlockHash = latestBlockHash
 	s.txMempool = []Tx{}
 
-	return s.latestBlockHash, nil
+	return latestBlockHash, nil
 }
 
 func (s *State) Close() {
