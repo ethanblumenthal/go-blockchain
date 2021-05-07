@@ -8,18 +8,18 @@ import (
 type Hash [32]byte
 
 type Block struct {
-	Header BlockHeader // metadata (parent block hash + time)
-	TXs    []Tx        // new transactions only (payload)
+	Header BlockHeader `json:"header"`
+	TXs    []Tx        `json:"payload"`
 }
 
 type BlockHeader struct {
-	Parent Hash        // parent block reference
-	Time   uint64
+	Parent Hash        `json:"parent"`
+	Time   uint64      `json:"time"`
 }
 
 type BlockFS struct {
-	Key    Hash    `json:"hash"`
-	Value  Block   `json:"block"`
+	Key    Hash        `json:"hash"`
+	Value  Block       `json:"block"`
 }
 
 func NewBlock(parent Hash, time uint64, txs []Tx) Block {

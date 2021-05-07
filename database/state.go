@@ -35,8 +35,8 @@ func NewStateFromDisk() (*State, error) {
 		balances[account] = balance
 	}
 
-	txDbFilePath := filepath.Join(cwd, "database", "tx.db")
-	f, err := os.OpenFile(txDbFilePath, os.O_APPEND|os.O_RDWR, 0600)
+	blockDbFilePath := filepath.Join(cwd, "database", "block.db")
+	f, err := os.OpenFile(blockDbFilePath, os.O_APPEND|os.O_RDWR, 0600)
 	if err != nil {
 		return nil, err
 	}
@@ -50,20 +50,42 @@ func NewStateFromDisk() (*State, error) {
 			return nil, err
 		}
 
+		blockFSJson := scanner.Bytes()
+
 		// Convert JSON encoded TX into an object (struct)
-		var tx Tx
-		json.Unmarshal(scanner.Bytes(), &tx)
+		var blockFs BlockFS
+		json.Unmarshal(blockFSJson, &blockFs)
+		if err != nil {
+			return nil, err
+		}
 
 		// Rebuild the state (user balances),
 		// as a series of events
-		if err := state.apply(tx); err != nil {
+		err := state.applyBlock(blockFs.Value)
+		if err != nil {
 			return nil, err
 		}
+		
+		state.latestBlockHash = blockFs.Key
 	}
 	return state, nil
 }
 
-func (s *State) Add(tx Tx) error {
+func (s *State) LatestBlockHash() Hash {
+	return s.latestBlockHash
+}
+
+func (s *State) AddBlock(b Block) error {
+	for _, tx := range b.TXs {
+		if err := s.AddTx(tx); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s *State) AddTx(tx Tx) error {
 	if err := s.apply(tx); err != nil {
 		return err
 	}
@@ -80,7 +102,7 @@ func (s *State) Persist() (Hash, error) {
 		uint64(time.Now().Unix()),
 		s.txMempool,
 	)
-
+	
 	blockHash, err := block.Hash()
 	if err != nil {
 		return Hash{}, err
@@ -98,8 +120,7 @@ func (s *State) Persist() (Hash, error) {
 	fmt.Printf("\t%s\n", blockFsJson)
 
 	// Write it to the DB file on a new line
-	_, err = s.dbFile.Write(append(blockFsJson, '\n'))
-	if err != nil {
+	if _, err = s.dbFile.Write(append(blockFsJson, '\n')); err != nil {
 		return Hash{}, err
 	}
 	s.latestBlockHash = blockHash
@@ -112,6 +133,16 @@ func (s *State) Persist() (Hash, error) {
 
 func (s *State) Close() {
 	s.dbFile.Close()
+}
+
+func (s *State) applyBlock(b Block) error {
+	for _, tx := range b.TXs {
+		if err := s.apply(tx); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (s *State) apply(tx Tx) error {
