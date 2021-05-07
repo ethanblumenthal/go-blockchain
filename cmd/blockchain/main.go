@@ -7,6 +7,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const flagDataDir = "datadir"
+
 func main() {
 	var blockchainCmd = &cobra.Command{
 		Use: "blockchain",
@@ -16,13 +18,18 @@ func main() {
 
 	blockchainCmd.AddCommand(versionCmd)
 	blockchainCmd.AddCommand(balancesCmd())
-	blockchainCmd.AddCommand(txCmd())
+	// blockchainCmd.AddCommand(runCmd())
 
 	err := blockchainCmd.Execute()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+func addDefaultRequiredFlags(cmd *cobra.Command) {
+	cmd.Flags().String(flagDataDir, "", "Absolute path to the node data dir where the DB will/is stored")
+	cmd.MarkFlagRequired(flagDataDir)
 }
 
 func incorrectUsageErr() error {

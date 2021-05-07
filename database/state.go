@@ -17,15 +17,13 @@ type State struct {
 	latestBlockHash Hash
 }
 
-func NewStateFromDisk() (*State, error) {
-	// get current working directory
-	cwd, err := os.Getwd()
+func NewStateFromDisk(dataDir string) (*State, error) {
+	err := initDataDirIfNotExists(dataDir)
 	if err != nil {
 		return nil, err
 	}
 
-	genFilePath := filepath.Join(cwd, "database", "genesis.json")
-	gen, err := loadGenesis(genFilePath)
+	gen, err := loadGenesis(getBlocksDbFilePath(dataDir))
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +33,7 @@ func NewStateFromDisk() (*State, error) {
 		balances[account] = balance
 	}
 
-	blockDbFilePath := filepath.Join(cwd, "database", "block.db")
+	blockDbFilePath := filepath.Join(dataDir, "database", "block.db")
 	f, err := os.OpenFile(blockDbFilePath, os.O_APPEND|os.O_RDWR, 0600)
 	if err != nil {
 		return nil, err
