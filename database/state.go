@@ -23,7 +23,7 @@ func NewStateFromDisk(dataDir string) (*State, error) {
 		return nil, err
 	}
 
-	gen, err := loadGenesis(getBlocksDbFilePath(dataDir))
+	gen, err := loadGenesis(getGenesisJsonFilePath(dataDir))
 	if err != nil {
 		return nil, err
 	}

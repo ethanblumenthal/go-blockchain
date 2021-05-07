@@ -14,20 +14,20 @@ var genesisJson = `
   }
 }`
 
-type genesis struct {
+type Genesis struct {
 	Balances map[Account]uint `json:"balances"`
 }
 
-func loadGenesis(path string) (genesis, error) {
+func loadGenesis(path string) (Genesis, error) {
 	content, err := ioutil.ReadFile(path)
 	if err != nil {
-		return genesis{}, err
+		return Genesis{}, err
 	}
 
-	var loadedGenesis genesis
+	var loadedGenesis Genesis
 	err = json.Unmarshal(content, &loadedGenesis)
 	if err != nil {
-		return genesis{}, err
+		return Genesis{}, err
 	}
 
 	return loadedGenesis, nil
