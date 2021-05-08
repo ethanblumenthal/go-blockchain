@@ -17,7 +17,7 @@ func runCmd() *cobra.Command {
             
             fmt.Println("Launching blockchain node and its HTTP API...")
 
-            bootstrap := node.NewPeerNode("", 8080, true, true)
+            bootstrap := node.NewPeerNode("18.190.152.144", 8080, true, true)
             n := node.New(dataDir, port, bootstrap)
 
             err := n.Run()

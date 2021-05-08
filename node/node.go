@@ -25,8 +25,8 @@ type Node struct {
 	knownPeers []PeerNode
 }
 
-func NewPeerNode(ip string, port uint64, isBootStrap bool, isActive bool) PeerNode {
-	return NewPeerNode(ip, port, isBootStrap, isActive)
+func NewPeerNode(ip string, port uint64, isBootstrap bool, connected bool) PeerNode {
+	return PeerNode{ip, port, isBootstrap, connected}
 }
 
 func (n *Node) Run() error {
