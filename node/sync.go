@@ -13,13 +13,30 @@ func (n *Node) sync(ctx context.Context) error {
 	for {
 		select {
 		case <-ticker.C:
-			fmt.Println("Searching for new Peers and Blocks...")
-			n.fetchNewBlocksAndPeers()
+			n.doSync()
 
 		case <-ctx.Done():
 			ticker.Stop()
 		}
 	}
+}
+
+func (n *Node) doSync() {
+	for _, peer := range n.KnownPeers {
+		status, err := queryPeerStatus(peer)
+		err = n.joinKnownPeers(peer)
+		err = n.syncBlocks(peer, status)
+		err = n.syncKnownPeers(peer, status)
+	}
+}
+
+func (n *Node) syncBlocks(peer PeerNode, status StatusRes) error {
+	localBlockNumber := n.state.LatestBlock().Header.Number
+	if localBlockNumber < status.Number {
+		newBlocksCount := status.Number - localBlockNumber
+	}
+	
+	return nil
 }
 
 func (n *Node) fetchNewBlocksAndPeers() {

@@ -2,6 +2,7 @@ package node
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/ethanblumenthal/golang-blockchain/database"
 )
@@ -50,7 +51,6 @@ func txAddHandler(w http.ResponseWriter, r *http.Request, state *database.State)
 		return
 	}
 
-
 	tx := database.NewTx(
 		database.NewAccount(req.From),
 		database.NewAccount(req.To),
@@ -58,15 +58,15 @@ func txAddHandler(w http.ResponseWriter, r *http.Request, state *database.State)
 		req.Data,
 	)
 
-	// Add a new TX into the Mempool
-	err = state.AddTx(tx)
-	if err != nil {
-		writeErrRes(w, err)
-		return
-	}
+	block := database.NewBlock(
+		state.LatestBlockHash(),
+		state.LatestBlock().Header.Number + 1,
+		uint64(time.Now().Unix()),
+		[]database.Tx{tx},
+	)
 
 	// Flush the Mempool TX to the disk
-	hash, err := state.Persist()
+	hash, err := state.AddBlock(block)
 	if err != nil {
 		writeErrRes(w, err)
 		return
