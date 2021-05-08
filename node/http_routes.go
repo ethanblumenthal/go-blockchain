@@ -32,6 +32,10 @@ type StatusRes struct {
 	KnownPeers map[string]PeerNode    `json:"peers_known"`
 }
 
+type SyncRes struct {
+	Blocks []database.Block `json:"blocks"`
+}
+
 func listBalancesHandler(w http.ResponseWriter, r *http.Request, state *database.State) {
 	writeRes(w, BalancesRes{state.LatestBlockHash(), state.Balances})
 }
@@ -79,4 +83,26 @@ func statusHandler(w http.ResponseWriter, r *http.Request, node *Node) {
 	}
 
 	writeRes(w, res)
+}
+
+func syncHandler(w http.ResponseWriter, r *http.Request, dataDir string) {
+	// Query latest block and check state for newer blocks
+	reqHash := r.URL.Query().Get(endpointSyncQueryKeyFromBlock)
+
+	hash := database.Hash{}
+	err := hash.UnmarshaText([]byte(reqHash))
+	if err != nil {
+		writeErrRes(w, err)
+		return
+	}
+
+	// Read newer blocks from the database
+	blocks, err := database.GetBlocksAfter(hash, dataDir)
+	if err != nil {
+		writeErrRes(w, err)
+		return
+	}
+
+	// JSON encode the blocks and return them in the response
+	writeRes(w, SyncRes{Blocks: blocks})
 }
