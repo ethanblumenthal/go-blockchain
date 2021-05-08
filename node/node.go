@@ -8,6 +8,7 @@ import (
 	"github.com/ethanblumenthal/golang-blockchain/database"
 )
 
+const DefaultIP = "127.0.0.1"
 const DefaultHTTPPort = 8080
 const endpointStatus = "/node/status"
 const endpointSync = "/node/sync"
@@ -22,8 +23,8 @@ type PeerNode struct {
 
 type Node struct {
 	dataDir string
+	ip string
 	port uint64
-
 	// To inject the State into HTTP handlers
 	state *database.State
 	knownPeers map[string]PeerNode
@@ -71,12 +72,13 @@ func (n *Node) Run() error {
 	return http.ListenAndServe(fmt.Sprintf(":%d", n.port), nil)
 }
 
-func New(dataDir string, port uint64, bootstrap PeerNode) *Node {
+func New(dataDir string, ip string, port uint64, bootstrap PeerNode) *Node {
 	knownPeers := make(map[string]PeerNode)
 	knownPeers[bootstrap.TcpAddress()] = bootstrap
 
 	return &Node{
 		dataDir: dataDir,
+		ip: ip,
 		port: port,
 		knownPeers: knownPeers,
 	}

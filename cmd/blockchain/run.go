@@ -12,13 +12,13 @@ func runCmd() *cobra.Command {
         Use: "run",
         Short: "Launches the blockchain node and its HTTP API.",
         Run: func(cmd *cobra.Command, args []string) {
-            dataDir, _ := cmd.Flags().GetString(flagDataDir)
+            ip, _ := cmd.Flags().GetString(flagIP)
             port, _ := cmd.Flags().GetUint64(flagPort)
             
             fmt.Println("Launching blockchain node and its HTTP API...")
 
-            bootstrap := node.NewPeerNode("18.190.152.144", 8080, true, true)
-            n := node.New(dataDir, port, bootstrap)
+            bootstrap := node.NewPeerNode("127.0.0.1", 8080, true, true)
+            n := node.New(getDataDirFromCmd(cmd), ip, port, bootstrap)
 
             err := n.Run()
             if err != nil {
@@ -28,6 +28,7 @@ func runCmd() *cobra.Command {
         },
     }
     addDefaultRequiredFlags(runCmd)
+    runCmd.Flags().String(flagPort, node.DefaultIP, "exposed IP for communication with peers")
     runCmd.Flags().Uint64(flagPort, node.DefaultHTTPPort, "exposed HTTP port for communication with peers")
 
     return runCmd
