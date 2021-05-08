@@ -1,7 +1,9 @@
 package node
 
 import (
+	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/ethanblumenthal/golang-blockchain/database"
@@ -35,6 +37,11 @@ type StatusRes struct {
 
 type SyncRes struct {
 	Blocks []database.Block `json:"blocks"`
+}
+
+type AddPeerRes struct {
+	Success bool   `json:"success"`
+	Error   string `json:"error"`
 }
 
 func listBalancesHandler(w http.ResponseWriter, r *http.Request, state *database.State) {
@@ -105,4 +112,21 @@ func syncHandler(w http.ResponseWriter, r *http.Request, dataDir string) {
 
 	// JSON encode the blocks and return them in the response
 	writeRes(w, SyncRes{Blocks: blocks})
+}
+
+func addPeerHandler(w http.ResponseWriter, r *http.Request, node *Node) {
+	peerIP := r.URL.Query().Get(endpointAddPeerQueryKeyIP)
+	peerPortRaw := r.URL.Query().Get(endpointAddPeerQueryKeyPort)
+	
+	peerPort, err := strconv.ParseUint(peerPortRaw, 10, 32)
+	if err != nil {
+		writeRes(w, AddPeerRes{false, err.Error()})
+		return
+	}
+
+	peer := NewPeerNode(peerIP, peerPort, false, true)
+	node.AddPeer(peer)
+	fmt.Printf("Peer '%s' was added into KnownPeers\n", peer.TcpAddress())
+
+	writeRes(w, AddPeerRes{true, ""})
 }

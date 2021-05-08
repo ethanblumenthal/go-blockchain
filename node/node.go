@@ -11,8 +11,13 @@ import (
 const DefaultIP = "127.0.0.1"
 const DefaultHTTPPort = 8080
 const endpointStatus = "/node/status"
+
 const endpointSync = "/node/sync"
 const endpointSyncQueryKeyFromBlock = "fromBlock"
+
+const endpointAddPeer = "/node/peer"
+const endpointAddPeerQueryKeyIP = "ip"
+const endpointAddPeerQueryKeyPort = "port"
 
 type PeerNode struct {
 	IP          string `json:"ip"`
@@ -32,6 +37,18 @@ type Node struct {
 
 func (pn PeerNode) TcpAddress() string {
 	return fmt.Sprintf("%s:%d", pn.IP, pn.Port)
+}
+
+func New(dataDir string, ip string, port uint64, bootstrap PeerNode) *Node {
+	knownPeers := make(map[string]PeerNode)
+	knownPeers[bootstrap.TcpAddress()] = bootstrap
+
+	return &Node{
+		dataDir: dataDir,
+		ip: ip,
+		port: port,
+		knownPeers: knownPeers,
+	}
 }
 
 func NewPeerNode(ip string, port uint64, isBootstrap bool, connected bool) PeerNode {
@@ -69,17 +86,26 @@ func (n *Node) Run() error {
 		statusHandler(w, r, n)
 	})
 
+	http.HandleFunc(endpointAddPeer, func(w http.ResponseWriter, r *http.Request) {
+		addPeerHandler(w ,r, n)
+	})
+
 	return http.ListenAndServe(fmt.Sprintf(":%d", n.port), nil)
 }
 
-func New(dataDir string, ip string, port uint64, bootstrap PeerNode) *Node {
-	knownPeers := make(map[string]PeerNode)
-	knownPeers[bootstrap.TcpAddress()] = bootstrap
+func (n *Node) AddPeer(peer PeerNode) {
+	n.knownPeers[peer.TcpAddress()] = peer
+}
 
-	return &Node{
-		dataDir: dataDir,
-		ip: ip,
-		port: port,
-		knownPeers: knownPeers,
+func (n *Node) RemovePeer(peer PeerNode) {
+	delete(n.knownPeers, peer.TcpAddress())
+}
+
+func (n *Node) IsKnownPeer(peer PeerNode) bool {
+	if peer.IP == n.ip && peer.Port == n.port {
+		return true
 	}
+
+	_, isKnownPeer := n.knownPeers[peer.TcpAddress()]
+	return isKnownPeer
 }
