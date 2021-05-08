@@ -9,7 +9,23 @@ import (
 	"github.com/ethanblumenthal/golang-blockchain/database"
 )
 
-const httpPort = 8000
+const DefaultHTTPPort = 8080
+
+type PeerNode struct {
+	IP          string `json:"ip"`
+	Port        uint64 `json:"port"`
+	IsBootStrap bool   `json:"is_bootstrap"`
+	IsActive    bool   `json:"is_active"`
+}
+
+type Node struct {
+	dataDir string
+	port uint64
+
+	// To inject the State into HTTP handlers
+	state *database.State
+	knownPeers []PeerNode
+}
 
 type ErrRes struct {
 	Error string `json:"error"`
@@ -32,18 +48,25 @@ type TxAddRes struct {
 }
 
 type StatusRes struct {
-	Hash   database.Hash `json:"block_hash"`
-	Number uint64        `json:"block_number"`
+	Hash       database.Hash `json:"block_hash"`
+	Number     uint64        `json:"block_number"`
+	KnownPeers []PeerNode    `json:"peers_known"`
 }
 
-func Run(dataDir string) error {
-	fmt.Println(fmt.Sprintf("Listening on HTTP port %d", httpPort))
+func NewPeerNode(ip string, port uint64, isBootStrap bool, isActive bool) PeerNode {
+	return NewPeerNode(ip, port, isBootStrap, isActive)
+}
 
-	state, err := database.NewStateFromDisk(dataDir)
+func (n *Node) Run() error {
+	fmt.Println(fmt.Sprintf("Listening on HTTP port %d", n.port))
+
+	state, err := database.NewStateFromDisk(n.dataDir)
 	if err != nil {
 		return err
 	}
 	defer state.Close()
+
+	n.state = state
 
 	http.HandleFunc("/balances/list", func (w http.ResponseWriter, r *http.Request) {
 		listBalancesHandler(w, r, state)	
@@ -54,10 +77,18 @@ func Run(dataDir string) error {
 	})
 
 	http.HandleFunc("/node/status", func(w http.ResponseWriter, r *http.Request) {
-		statusHandler(w, r, state)
+		statusHandler(w, r, n)
 	})
 
-	return http.ListenAndServe(fmt.Sprintf(":%d", httpPort), nil)
+	return http.ListenAndServe(fmt.Sprintf(":%d", n.port), nil)
+}
+
+func New(dataDir string, port uint64, bootstrap PeerNode) *Node {
+	return &Node{
+		dataDir: dataDir,
+		port: port,
+		knownPeers: []PeerNode{bootstrap},
+	}
 }
 
 func listBalancesHandler(w http.ResponseWriter, r *http.Request, state *database.State) {
@@ -99,10 +130,11 @@ func txAddHandler(w http.ResponseWriter, r *http.Request, state *database.State)
 	writeRes(w, TxAddRes{hash})
 }
 
-func statusHandler(w http.ResponseWriter, r *http.Request, state *database.State) {
+func statusHandler(w http.ResponseWriter, r *http.Request, node *Node) {
 	res := StatusRes{
-		Hash: state.LatestBlockHash(),
-		Number: state.LatestBlock().Header.Number,
+		Hash: node.state.LatestBlockHash(),
+		Number: node.state.LatestBlock().Header.Number,
+		KnownPeers: node.knownPeers,
 	}
 
 	writeRes(w, res)
