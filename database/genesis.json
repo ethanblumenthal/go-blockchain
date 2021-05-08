@@ -1,7 +1,0 @@
-{
-  "genesis_time": "2019-05-05T00:00:00.000000000Z",
-  "chain_id": "golang-blockchain",
-  "balances": {
-    "ethan": 1000000
-  }
-}

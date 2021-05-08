@@ -134,12 +134,9 @@ func (s *State) Persist() (Hash, error) {
 	}
 	s.latestBlockHash = blockHash
 
-	// Reset the mempool
-	s.latestBlock = block
-	s.latestBlockHash = latestBlockHash
 	s.txMempool = []Tx{}
 
-	return latestBlockHash, nil
+	return s.latestBlockHash, nil
 }
 
 func (s *State) Close() {
