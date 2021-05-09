@@ -23,7 +23,8 @@ type PeerNode struct {
 	IP          string `json:"ip"`
 	Port        uint64 `json:"port"`
 	IsBootStrap bool   `json:"is_bootstrap"`
-	IsActive    bool   `json:"is_active"`
+	// Sync with this peer if connection is established
+	connected   bool
 }
 
 type Node struct {

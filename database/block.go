@@ -13,6 +13,10 @@ func (h *Hash) UnmarshaText(data []byte) error {
 	return err
 }
 
+func (h Hash) Hex() string {
+	return hex.EncodeToString(h[:])
+}
+
 type Block struct {
 	Header BlockHeader `json:"header"`
 	TXs    []Tx        `json:"payload"`

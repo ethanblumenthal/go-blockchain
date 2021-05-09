@@ -84,7 +84,46 @@ func (n *Node) syncKnownPeers(peer PeerNode, status StatusRes) error {
 	return nil
 }
 
-func (n *Node) joinKnownPeers(peer PeerNode) error {}
+func (n *Node) joinKnownPeers(peer PeerNode) error {
+	if peer.connected {
+		return nil
+	}
+
+	url := fmt.Sprintf(
+		"http://%s%s?%s=%s&%s=%d",
+		peer.TcpAddress(),
+		endpointAddPeer,
+		endpointAddPeerQueryKeyIP,
+		n.ip,
+		endpointAddPeerQueryKeyPort,
+		n.port,
+	)
+
+	res, err := http.Get(url) 
+	if err != nil {
+		return err
+	}
+
+	addPeerRes := AddPeerRes{}
+	err = readRes(res, &addPeerRes)
+	if err != nil {
+		return err
+	}
+	if addPeerRes.Error != "" {
+		return fmt.Errorf(addPeerRes.Error)
+	}
+
+	knownPeer := n.knownPeers[peer.TcpAddress()]
+	knownPeer.connected = addPeerRes.Success
+
+	n.AddPeer(knownPeer)
+
+	if !addPeerRes.Success {
+		return fmt.Errorf("unable to join KnownPeers of '%s'", peer.TcpAddress())
+	}
+
+	return nil
+}
 
 func queryPeerStatus(peer PeerNode) (StatusRes, error) {
 	url := fmt.Sprintf("http://%s%s", peer.TcpAddress(), endpointStatus)
@@ -102,4 +141,27 @@ func queryPeerStatus(peer PeerNode) (StatusRes, error) {
 	return statusRes, nil
 }
 
-func fetchBlocksFromPeer(peer PeerNode, fromBlock database.Hash) ([]database.Block, error) {}
+func fetchBlocksFromPeer(peer PeerNode, fromBlock database.Hash) ([]database.Block, error) {
+	fmt.Printf("Importing blocks from Peer %s...\n", peer.TcpAddress())
+
+	url := fmt.Sprintf(
+		"http://%s%s?%s=%s",
+		peer.TcpAddress(),
+		endpointSync,
+		endpointSyncQueryKeyFromBlock,
+		fromBlock.Hex(),
+	)
+
+	res, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+
+	syncRes := SyncRes{}
+	err = readRes(res, &syncRes)
+	if err != nil {
+		return nil, err
+	}
+
+	return syncRes.Blocks, nil
+}
