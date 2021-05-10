@@ -14,18 +14,18 @@ const flagPort = "port"
 const flagMiner = "miner"
 
 func main() {
-	var blockchainCmd = &cobra.Command{
-		Use: "blockchain",
+	var gochainCmd = &cobra.Command{
+		Use: "gochain",
 		Short: "Golang blockchain command line interface (CLI).",
 		Run: func(cmd *cobra.Command, args []string) {},
 	}
 
-	// blockchainCmd.AddCommand(migrateCmd())
-	blockchainCmd.AddCommand(versionCmd)
-	blockchainCmd.AddCommand(balancesCmd())
-	blockchainCmd.AddCommand(runCmd())
+	gochainCmd.AddCommand(migrateCmd())
+	gochainCmd.AddCommand(versionCmd)
+	gochainCmd.AddCommand(balancesCmd())
+	gochainCmd.AddCommand(runCmd())
 
-	err := blockchainCmd.Execute()
+	err := gochainCmd.Execute()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

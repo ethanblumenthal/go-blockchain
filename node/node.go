@@ -121,6 +121,10 @@ func (n *Node) Run(ctx context.Context) error {
 	return nil
 }
 
+func (n *Node) LatestBlockHash() database.Hash {
+	return n.state.LatestBlockHash()
+}
+
 func (n *Node) mine(ctx context.Context) error {
 	var miningCtx context.Context
 	var stopCurrentMining context.CancelFunc

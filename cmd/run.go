@@ -12,13 +12,13 @@ import (
 func runCmd() *cobra.Command {
     var runCmd = &cobra.Command{
         Use: "run",
-        Short: "Launches the blockchain node and its HTTP API.",
+        Short: "Launches the gochain node and its HTTP API.",
         Run: func(cmd *cobra.Command, args []string) {
             ip, _ := cmd.Flags().GetString(flagIP)
             port, _ := cmd.Flags().GetUint64(flagPort)
             miner, _ := cmd.Flags().GetString(flagMiner)
             
-            fmt.Println("Launching blockchain node and its HTTP API...")
+            fmt.Println("Launching gochain node and its HTTP API...")
 
             bootstrap := node.NewPeerNode("127.0.0.1", 8080, true, database.NewAccount("ethan"), false)
             n := node.New(getDataDirFromCmd(cmd), ip, port, database.NewAccount(miner), bootstrap)
