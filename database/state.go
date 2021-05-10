@@ -89,7 +89,7 @@ func (s *State) AddBlocks(blocks []Block) error {
 func (s *State) AddBlock(b Block) (Hash, error) {
 	pendingState := s.copy()
 
-	err := applyBlock(b, pendingState)
+	err := applyBlock(b, &pendingState)
 	if err != nil {
 		return Hash{}, err
 	}
@@ -164,7 +164,7 @@ func (s *State) copy() State {
 
 // Verifies if block can be added to the blockchain
 // Block metadata and transactions (sufficient balances) are verified
-func applyBlock(b Block, s State) error {
+func applyBlock(b Block, s *State) error {
 	nextExpectedBlockNumber := s.latestBlock.Header.Number + 1
 
 	// Validate the next block (block number increases by 1)
@@ -177,7 +177,24 @@ func applyBlock(b Block, s State) error {
 		return fmt.Errorf("next block parent hash must be '%x' not '%x'", s.latestBlockHash, b.Header.Parent)
 	}
 
-	return applyTXs(b.TXs, &s)
+	hash, err := b.Hash()
+	if err != nil {
+		return err
+	}
+
+	if !IsBlockHashValid(hash) {
+		return fmt.Errorf("invalid block hash %x", hash)
+	}
+
+	err = applyTXs(b.TXs, s)
+	if err != nil {
+		return err
+	}
+
+	// Reward the miner if the block and its TXs are valid
+	s.Balances[b.Header.Miner] += BlockReward
+
+	return nil
 }
 
 func applyTXs(txs []Tx, s *State) error {
