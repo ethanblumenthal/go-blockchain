@@ -17,7 +17,7 @@ func runCmd() *cobra.Command {
             
             fmt.Println("Launching blockchain node and its HTTP API...")
 
-            bootstrap := node.NewPeerNode("127.0.0.1", 8080, true, true)
+            bootstrap := node.NewPeerNode("127.0.0.1", 8080, true, false)
             n := node.New(getDataDirFromCmd(cmd), ip, port, bootstrap)
 
             err := n.Run()
@@ -28,7 +28,7 @@ func runCmd() *cobra.Command {
         },
     }
     addDefaultRequiredFlags(runCmd)
-    runCmd.Flags().String(flagPort, node.DefaultIP, "exposed IP for communication with peers")
+    runCmd.Flags().String(flagIP, node.DefaultIP, "exposed IP for communication with peers")
     runCmd.Flags().Uint64(flagPort, node.DefaultHTTPPort, "exposed HTTP port for communication with peers")
 
     return runCmd

@@ -25,9 +25,18 @@ func (n *Node) sync(ctx context.Context) error {
 
 func (n *Node) doSync() {
 	for _, peer := range n.knownPeers {
+		if n.ip == peer.IP && n.port == peer.Port {
+			continue
+		}
+
+		fmt.Printf("Searching for new peers and their blocks and peers: '%s'\n", peer.TcpAddress())
+
 		status, err := queryPeerStatus(peer)
 		if err != nil {
 			fmt.Printf("ERROR: %s\n", err)
+			fmt.Printf("Peer '%s' was removed from KnownPeers\n", peer.TcpAddress())
+
+			n.RemovePeer(peer)
 			continue
 		}
 
@@ -53,26 +62,36 @@ func (n *Node) doSync() {
 
 func (n *Node) syncBlocks(peer PeerNode, status StatusRes) error {
 	localBlockNumber := n.state.LatestBlock().Header.Number
-	if localBlockNumber < status.Number {
-		newBlocksCount := status.Number - localBlockNumber
-		fmt.Printf("Found %d new blocks from peer %s\n", newBlocksCount, peer.TcpAddress())
 
-		// Call the node's /node/sync endpoint and read new blocks
-		blocks, err := fetchBlocksFromPeer(peer, n.state.LatestBlockHash())
-		if err != nil {
-			return err
-		}
-
-		// Write the newly downloaded blocks to this node's local database
-		err = n.state.AddBlocks(blocks)
-		if err != nil {
-			return err
-		}
+	// If the peer has no blocks, ignore it
+	if status.Hash.IsEmpty() {
+		return nil
 	}
-	
-	return nil
-}
 
+	// If the peer has less blocks than us, ignore it
+	if status.Number < localBlockNumber {
+		return nil
+	}
+
+	// If it's the genesis block and we already synced it, ignore it
+	if status.Number == 0 && !n.state.LatestBlockHash().IsEmpty() {
+		return nil
+	}
+
+	// Display found 1 new block if we sync the genesis block 0
+	newBlocksCount := status.Number - localBlockNumber
+	if localBlockNumber == 0 && status.Number == 0 {
+		newBlocksCount = 1
+	}
+	fmt.Printf("Found %d new blocks from peer %s\n", newBlocksCount, peer.TcpAddress())
+
+	blocks, err := fetchBlocksFromPeer(peer, n.state.LatestBlockHash())
+	if err != nil {
+		return err
+	}
+
+	return n.state.AddBlocks(blocks)
+}
 func (n *Node) syncKnownPeers(peer PeerNode, status StatusRes) error {
 	for _, statusPeer := range status.KnownPeers {
 		if !n.IsKnownPeer(statusPeer) {
@@ -137,7 +156,7 @@ func queryPeerStatus(peer PeerNode) (StatusRes, error) {
 	if err != nil {
 		return StatusRes{}, err
 	}
-	
+
 	return statusRes, nil
 }
 

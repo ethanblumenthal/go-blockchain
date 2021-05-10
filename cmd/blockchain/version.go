@@ -6,10 +6,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const Major = "0"
-const Minor = "2"
+const Major = "1"
+const Minor = "0"
 const Fix = "0"
-const Verbal = "blockchain tx add --data=reward"
+const Verbal = "Gochain version 1.0.0"
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
