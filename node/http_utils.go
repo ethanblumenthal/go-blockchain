@@ -52,6 +52,6 @@ func readRes(r *http.Response, reqBody interface{}) error {
 	if err != nil {
 		return fmt.Errorf("unable to unmarshal response body. %s", err.Error())
 	}
-	
+
 	return nil
 }

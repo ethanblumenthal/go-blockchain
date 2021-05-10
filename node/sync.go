@@ -92,6 +92,7 @@ func (n *Node) syncBlocks(peer PeerNode, status StatusRes) error {
 
 	return n.state.AddBlocks(blocks)
 }
+
 func (n *Node) syncKnownPeers(peer PeerNode, status StatusRes) error {
 	for _, statusPeer := range status.KnownPeers {
 		if !n.IsKnownPeer(statusPeer) {
@@ -118,7 +119,7 @@ func (n *Node) joinKnownPeers(peer PeerNode) error {
 		n.port,
 	)
 
-	res, err := http.Get(url) 
+	res, err := http.Get(url)
 	if err != nil {
 		return err
 	}

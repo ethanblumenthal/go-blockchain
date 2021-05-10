@@ -9,7 +9,7 @@ import (
 
 type Hash [32]byte
 
-func (h *Hash) UnmarshaText(data []byte) error {
+func (h *Hash) UnmarshalText(data []byte) error {
 	_, err := hex.Decode(h[:], data)
 	return err
 }

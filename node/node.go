@@ -22,17 +22,15 @@ const endpointAddPeerQueryKeyPort = "port"
 type PeerNode struct {
 	IP          string `json:"ip"`
 	Port        uint64 `json:"port"`
-	IsBootStrap bool   `json:"is_bootstrap"`
-	// Sync with this peer if connection is established
+	IsBootstrap bool   `json:"is_bootstrap"`
 	connected   bool
 }
 
 type Node struct {
-	dataDir string
-	ip string
-	port uint64
-	// To inject the State into HTTP handlers
-	state *database.State
+	dataDir    string
+	ip         string
+	port       uint64
+	state      *database.State
 	knownPeers map[string]PeerNode
 }
 
@@ -45,9 +43,9 @@ func New(dataDir string, ip string, port uint64, bootstrap PeerNode) *Node {
 	knownPeers[bootstrap.TcpAddress()] = bootstrap
 
 	return &Node{
-		dataDir: dataDir,
-		ip: ip,
-		port: port,
+		dataDir:    dataDir,
+		ip:         ip,
+		port:       port,
 		knownPeers: knownPeers,
 	}
 }
@@ -58,7 +56,7 @@ func NewPeerNode(ip string, port uint64, isBootstrap bool, connected bool) PeerN
 
 func (n *Node) Run() error {
 	ctx := context.Background()
-	fmt.Println(fmt.Sprintf("Listening on HTTP port %d", n.port))
+	fmt.Println(fmt.Sprintf("Listening on: %s:%d", n.ip, n.port))
 
 	state, err := database.NewStateFromDisk(n.dataDir)
 	if err != nil {
@@ -68,11 +66,10 @@ func (n *Node) Run() error {
 
 	n.state = state
 
-	// Run sync() in a separate thread
 	go n.sync(ctx)
 
-	http.HandleFunc("/balances/list", func (w http.ResponseWriter, r *http.Request) {
-		listBalancesHandler(w, r, state)	
+	http.HandleFunc("/balances/list", func(w http.ResponseWriter, r *http.Request) {
+		listBalancesHandler(w, r, state)
 	})
 
 	http.HandleFunc("/tx/add", func(w http.ResponseWriter, r *http.Request) {
@@ -84,11 +81,11 @@ func (n *Node) Run() error {
 	})
 
 	http.HandleFunc(endpointSync, func(w http.ResponseWriter, r *http.Request) {
-		statusHandler(w, r, n)
+		syncHandler(w, r, n)
 	})
 
 	http.HandleFunc(endpointAddPeer, func(w http.ResponseWriter, r *http.Request) {
-		addPeerHandler(w ,r, n)
+		addPeerHandler(w, r, n)
 	})
 
 	return http.ListenAndServe(fmt.Sprintf(":%d", n.port), nil)
