@@ -2,6 +2,7 @@ package node
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -164,9 +165,44 @@ func (n *Node) mine(ctx context.Context) error {
 	}
 }
 
-func (n *Node) minePendingTXs(ctx context.Context) error {}
+func (n *Node) minePendingTXs(ctx context.Context) error {
+	blockToMine := NewPendingBlock(
+		n.state.LatestBlockHash(),
+		n.state.NextBlockNumber(),
+		n.info.Account,
+		n.getPendingTXsAsArray(),
+	)
 
-func (n *Node) removeMinedPendingTXs(block database.Block) {}
+	minedBlock, err := Mine(ctx, blockToMine)
+	if err != nil {
+		return err
+	}
+
+	n.removeMinedPendingTXs(minedBlock)
+
+	_, err = n.state.AddBlock(minedBlock)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (n *Node) removeMinedPendingTXs(block database.Block) {
+	if len(block.TXs) > 0 && len(n.pendingTXs) > 0 {
+		fmt.Println("Updating in-memory pending TXs pools")
+	}
+
+	for _, tx := range block.TXs {
+		txHash, _ := tx.Hash()
+		if _, exists := n.pendingTXs[txHash.Hex()]; exists {
+			fmt.Printf("\t-archiving mined TX: %s\n", txHash.Hex())
+
+			n.archivedTXs[txHash.Hex()] = tx
+			delete(n.pendingTXs, txHash.Hex())
+		}
+	}
+}
 
 func (n *Node) AddPeer(peer PeerNode) {
 	n.knownPeers[peer.TcpAddress()] = peer
@@ -185,6 +221,37 @@ func (n *Node) IsKnownPeer(peer PeerNode) bool {
 	return isKnownPeer
 }
 
-func (n *Node) AddPendingTX(tx database.Tx, fromPeer PeerNode) error {}
+func (n *Node) AddPendingTX(tx database.Tx, fromPeer PeerNode) error {
+	txHash, err := tx.Hash()
+	if err != nil {
+		return err
+	}
 
-func (n *Node) getPendingTXsAsArray() []database.Tx {}
+	txJson, err := json.Marshal(tx)
+	if err != nil {
+		return err
+	}
+
+	_, isAlreadyPending := n.pendingTXs[txHash.Hex()]
+	_, isArchived := n.archivedTXs[txHash.Hex()]
+
+	if !isAlreadyPending && !isArchived {
+		fmt.Printf("Added pending TX %s from peer %s\n", txJson, fromPeer.TcpAddress())
+		n.pendingTXs[txHash.Hex()] = tx
+		n.newPendingTXs <- tx
+	}
+
+	return nil
+}
+
+func (n *Node) getPendingTXsAsArray() []database.Tx {
+	txs := make([]database.Tx, len(n.pendingTXs))
+
+	i := 0
+	for _, tx := range n.pendingTXs {
+		txs[i] = tx
+		i++
+	}
+
+	return txs
+}

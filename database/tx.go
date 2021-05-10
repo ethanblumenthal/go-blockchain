@@ -1,5 +1,10 @@
 package database
 
+import (
+	"crypto/sha256"
+	"encoding/json"
+)
+
 type Account string
 
 func NewAccount(value string) Account {
@@ -19,4 +24,13 @@ func NewTx(from Account, to Account, value uint, data string) Tx {
 
 func (t Tx) IsReward() bool {
 	return t.Data == "reward"
+}
+
+func (t Tx) Hash() (Hash, error) {
+	blockJson, err := json.Marshal(t)
+	if err != nil {
+		return Hash{}, err
+	}
+
+	return sha256.Sum256(blockJson), nil
 }
