@@ -61,6 +61,15 @@ func TestNode_Mining(t *testing.T) {
 		_ = n.AddPendingTX(tx, nInfo)
 	}()
 
+	// Schedule a new TX 12 seconds from now in a separate thread
+	go func() {
+		time.Sleep(time.Second * miningIntervalSeconds + 2)
+		tx := database.NewTx("ethan", "carley", 2, "")
+
+		// Add it to the Mempool
+		_ = n.AddPendingTX(tx, nInfo)
+	}()
+
 	go func() {
 		// Periodically check if we mined the 2 blocks
 		ticker := time.NewTicker(time.Second * 10)
@@ -82,5 +91,140 @@ func TestNode_Mining(t *testing.T) {
 	// Assert test result
 	if n.state.LatestBlock().Header.Number != 1 {
 		t.Fatal("2 pending TX not mined into 2 under 30min")
+	}
+}
+
+func TestNode_MiningStopsOnNewSyncedBlock(t *testing.T) {
+	datadir := getTestDataDirPath()
+	err := fs.RemoveDir(datadir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Construct a new node instance where the TX originated from
+	nInfo := NewPeerNode("127.0.0.1", 8085, false, database.NewAccount(""), true)
+
+	ethanAccount := database.NewAccount("ethan")
+	carleyAccount := database.NewAccount("carley")
+
+	n := New(datadir, nInfo.IP, nInfo.Port, carleyAccount, nInfo)
+
+	// Allow the mining to run for 30mins at most
+	ctx, closeNode := context.WithTimeout(context.Background(), time.Minute*30)
+
+	tx1 := database.NewTx("ethan", "carley", 1, "")
+	tx2 := database.NewTx("ethan", "carley", 2, "")
+	tx2Hash, _ := tx2.Hash()
+
+	// Pre-mine a valid block to simulate a block incoming from a peer
+	validPreMinedPb := NewPendingBlock(database.Hash{}, 0, ethanAccount, []database.Tx{tx1})
+	validSyncedBlock, err := Mine(ctx, validPreMinedPb)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Add 2 new TXs to Ethan's node
+	go func() {
+		time.Sleep(time.Second * (miningIntervalSeconds - 2))
+
+		err := n.AddPendingTX(tx1, nInfo)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = n.AddPendingTX(tx2, nInfo)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	// Simulate that Carley mined the block with TX1 faster
+	go func () {
+		time.Sleep(time.Second * (miningIntervalSeconds + 2))
+		if !n.isMining {
+			t.Fatal("should be mining")
+		}
+
+		_, err := n.state.AddBlock(validSyncedBlock)
+		if !n.isMining {
+			t.Fatal(err)
+		}
+
+		// Mock that Ethan's block came from a network
+		n.newSyncedBlocks <- validSyncedBlock
+
+		time.Sleep(time.Second * 2)
+		if n.isMining {
+			t.Fatal("synced block should have canceled mining")
+		}
+
+		// Mined TX1 by Ethan should be removed from the Mempool
+		_, onlyTX2IsPending := n.pendingTXs[tx2Hash.Hex()]
+
+		if len(n.pendingTXs) != 1 && !onlyTX2IsPending {
+			t.Fatal("TX1 should still be pending")
+		}
+
+		time.Sleep(time.Second * (miningIntervalSeconds + 2))
+		if !n.isMining {
+			t.Fatal("should attempt to mine TX1 again")
+		}
+	}()
+
+	go func() {
+		// Regularly check if both TXs are now mined
+		ticker := time.NewTicker(time.Second * 10)
+
+		for {
+			select {
+			case <- ticker.C:
+				if n.state.LatestBlock().Header.Number == 1 {
+					closeNode()
+					return
+				}
+			}
+		}
+	}()
+
+	go func() {
+		time.Sleep(time.Second * 2)
+
+		startEthanBalance := n.state.Balances[ethanAccount]
+		startCarleyBalance := n.state.Balances[carleyAccount]
+
+
+		<- ctx.Done()
+
+		// Query balances again
+		endEthanBalance := n.state.Balances[ethanAccount]
+		endCarleyBalance := n.state.Balances[carleyAccount]
+
+		// In TX1 ethan transferred 1 gochain token to carley
+		// In TX2 ethan transferred 2 gochain tokens to carley
+		expectedEndEthanBalance := startEthanBalance - tx1.Value - tx2.Value + database.BlockReward
+		expectedEndCarleyBalance := startCarleyBalance + tx1.Value + tx2.Value + database.BlockReward
+
+		if endEthanBalance != expectedEndEthanBalance {
+			t.Fatalf("Ethan expected end balance is %d not %d", expectedEndEthanBalance, startEthanBalance)
+		}
+
+		if endCarleyBalance != expectedEndCarleyBalance {
+			t.Fatalf("Carley expected end balance is %d not %d", expectedEndCarleyBalance, startCarleyBalance)
+		}
+
+		t.Logf("Before Ethan: %d TBB", startEthanBalance)
+        t.Logf("Before Carley: %d TBB", startCarleyBalance)
+        t.Logf("After Ethan: %d TBB", endEthanBalance)
+        t.Logf("After Carley: %d TBB", endCarleyBalance)
+	}()
+	
+	_ = n.Run(ctx)
+
+	if n.state.LatestBlock().Header.Number != 1 {
+		t.Fatal("2 pending TX not mined into 2 blocks under 30m")
+	}
+
+	if len(n.pendingTXs) != 0 {
+		t.Fatal("no pending TXs should be left to mine")
 	}
 }
