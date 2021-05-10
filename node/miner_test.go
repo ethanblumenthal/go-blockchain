@@ -26,8 +26,6 @@ func TestValidBlockHash(t *testing.T) {
 func TestMine(t *testing.T) {
 	miner := database.NewAccount("ethan")
 	pendingBlock := createRandomPendingBlock(miner)
-
-	// Contes
 	ctx := context.Background()
 
 	minedBlock, err := Mine(ctx, pendingBlock)
