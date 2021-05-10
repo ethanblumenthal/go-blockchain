@@ -19,7 +19,7 @@ func main() {
 		Run: func(cmd *cobra.Command, args []string) {},
 	}
 
-	blockchainCmd.AddCommand(migrateCmd())
+	// blockchainCmd.AddCommand(migrateCmd())
 	blockchainCmd.AddCommand(versionCmd)
 	blockchainCmd.AddCommand(balancesCmd())
 	blockchainCmd.AddCommand(runCmd())

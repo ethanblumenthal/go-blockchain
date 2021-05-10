@@ -27,8 +27,9 @@ type Block struct {
 type BlockHeader struct {
 	Parent Hash        `json:"parent"`
 	Number uint64      `json:"number"`
-	None   uint32      `json:"nonce"`
+	Nonce   uint32     `json:"nonce"`
 	Time   uint64      `json:"time"`
+	Miner  Account     `json:"account"`
 }
 
 type BlockFS struct {
@@ -36,8 +37,8 @@ type BlockFS struct {
 	Value  Block       `json:"block"`
 }
 
-func NewBlock(parent Hash, number uint64, nonce uint32, time uint64, txs []Tx) Block {
-	return Block{BlockHeader{parent, number, nonce, time}, txs}
+func NewBlock(parent Hash, number uint64, nonce uint32, time uint64, miner Account, txs []Tx) Block {
+	return Block{BlockHeader{parent, number, nonce, time, miner}, txs}
 }
 
 func IsBlockHashValid(h Hash) bool {
