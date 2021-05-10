@@ -59,7 +59,7 @@ var migrateCmd = func() *cobra.Command {
 
 			block2 := database.NewBlock(
 				block1hash,
-				state.NextBlockNumber(),
+				state.,
 				uint64(time.Now().Unix()),
 				[]database.Tx{
 					database.NewTx("ethan", "ethan", 24700, "reward"),
