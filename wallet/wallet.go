@@ -3,8 +3,11 @@ package wallet
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"io/ioutil"
 	"path/filepath"
 
+	"github.com/ethanblumenthal/golang-blockchain/database"
+	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -27,6 +30,45 @@ func NewKeystoreAccount(dataDir string, password string) (common.Address, error)
 	}
 
 	return account.Address, nil
+}
+
+func SignTxWithKeystoreAccount(tx database.Tx, account common.Address, pwd string, keystoreDir string) (database.SignedTx, error) {
+	ks := keystore.NewKeyStore(keystoreDir, keystore.StandardScryptN, keystore.StandardScryptP)
+	ksAccount, err := ks.Find(accounts.Account{Address: account})
+	if err != nil {
+		return database.SignedTx{}, err
+	}
+
+	ksAccountJson, err := ioutil.ReadFile(ksAccount.URL.Path)
+	if err != nil {
+		return database.SignedTx{}, err
+	}
+
+	key, err := keystore.DecryptKey(ksAccountJson, pwd)
+	if err != nil {
+		return database.SignedTx{}, err
+	}
+
+	signedTx, err := SignTx(tx, key.PrivateKey)
+	if err != nil {
+		return database.SignedTx{}, err
+	}
+
+	return signedTx, nil
+}
+
+func SignTx(tx database.Tx, privKey *ecdsa.PrivateKey) (database.SignedTx, error) {
+	rawTx, err := tx.Encode()
+	if err != nil {
+		return database.SignedTx{}, err
+	}
+
+	sig, err := Sign(rawTx, privKey)
+	if err != nil {
+		return database.SignedTx{}, err
+	}
+
+	return database.NewSignedTx(tx, sig), nil
 }
 
 func Sign(msg []byte, privKey *ecdsa.PrivateKey) ([]byte, error) {

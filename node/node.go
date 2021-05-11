@@ -42,10 +42,10 @@ type Node struct {
 	info            PeerNode
 	state           *database.State
 	knownPeers      map[string]PeerNode
-	pendingTXs      map[string]database.Tx
-	archivedTXs     map[string]database.Tx
+	pendingTXs      map[string]database.SignedTx
+	archivedTXs     map[string]database.SignedTx
 	newSyncedBlocks chan database.Block
-	newPendingTXs   chan database.Tx
+	newPendingTXs   chan database.SignedTx
 	isMining        bool
 }
 
@@ -61,10 +61,10 @@ func New(dataDir string, ip string, port uint64, account common.Address, bootstr
 		dataDir:         dataDir,
 		info:            NewPeerNode(ip, port, false, account, true),
 		knownPeers:      knownPeers,
-		pendingTXs:      make(map[string]database.Tx),
-		archivedTXs:     make(map[string]database.Tx),
+		pendingTXs:      make(map[string]database.SignedTx),
+		archivedTXs:     make(map[string]database.SignedTx),
 		newSyncedBlocks: make(chan database.Block),
-		newPendingTXs:   make(chan database.Tx, 10000),
+		newPendingTXs:   make(chan database.SignedTx, 10000),
 		isMining:        false,
 	}
 }
@@ -226,7 +226,7 @@ func (n *Node) IsKnownPeer(peer PeerNode) bool {
 	return isKnownPeer
 }
 
-func (n *Node) AddPendingTX(tx database.Tx, fromPeer PeerNode) error {
+func (n *Node) AddPendingTX(tx database.SignedTx, fromPeer PeerNode) error {
 	txHash, err := tx.Hash()
 	if err != nil {
 		return err
@@ -249,8 +249,8 @@ func (n *Node) AddPendingTX(tx database.Tx, fromPeer PeerNode) error {
 	return nil
 }
 
-func (n *Node) getPendingTXsAsArray() []database.Tx {
-	txs := make([]database.Tx, len(n.pendingTXs))
+func (n *Node) getPendingTXsAsArray() []database.SignedTx {
+	txs := make([]database.SignedTx, len(n.pendingTXs))
 
 	i := 0
 	for _, tx := range n.pendingTXs {

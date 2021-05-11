@@ -25,7 +25,7 @@ func (h Hash) Hex() string {
 
 type Block struct {
 	Header BlockHeader `json:"header"`
-	TXs    []Tx        `json:"payload"`
+	TXs    []SignedTx  `json:"payload"`
 }
 
 type BlockHeader struct {
@@ -41,7 +41,7 @@ type BlockFS struct {
 	Value  Block       `json:"block"`
 }
 
-func NewBlock(parent Hash, number uint64, nonce uint32, time uint64, miner common.Address, txs []Tx) Block {
+func NewBlock(parent Hash, number uint64, nonce uint32, time uint64, miner common.Address, txs []SignedTx) Block {
 	return Block{BlockHeader{parent, number, nonce, time, miner}, txs}
 }
 
