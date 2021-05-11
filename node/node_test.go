@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethanblumenthal/golang-blockchain/database"
 	"github.com/ethanblumenthal/golang-blockchain/fs"
+	"github.com/ethanblumenthal/golang-blockchain/wallet"
 )
 
 func getTestDataDirPath() string {
@@ -24,7 +25,7 @@ func TestNode_Run(t *testing.T) {
 	}
 
 	// Construct a new node instance
-	n := New(datadir, "127.0.0.1", 8085, database.NewAccount("ethan"), PeerNode{})
+	n := New(datadir, "127.0.0.1", 8085, database.NewAccount(wallet.Account1), PeerNode{})
 
 	// Define a context with timeout for this test
 	// Node will run for 5s
@@ -38,6 +39,9 @@ func TestNode_Run(t *testing.T) {
 }
 
 func TestNode_Mining(t *testing.T) {
+	acc1 := database.NewAccount(wallet.Account1)
+	acc2 := database.NewAccount(wallet.Account2)
+
 	datadir := getTestDataDirPath()
 	err := fs.RemoveDir(datadir)
 	if err != nil {
@@ -48,7 +52,7 @@ func TestNode_Mining(t *testing.T) {
 	nInfo := NewPeerNode("127.0.0.1", 8085, false, database.NewAccount(""), true)
 
 	// Construct a new node instance and configure Ethan as a miner
-	n := New(datadir, nInfo.IP, nInfo.Port, database.NewAccount("ethan"), nInfo)
+	n := New(datadir, nInfo.IP, nInfo.Port, acc1, nInfo)
 
 	// Allow the mining to run for 30mins at most
 	ctx, closeNode := context.WithTimeout(context.Background(), time.Minute*30)
@@ -56,7 +60,7 @@ func TestNode_Mining(t *testing.T) {
 	// Schedule a new TX 3 seconds from now in a separate thread
 	go func() {
 		time.Sleep(time.Second * miningIntervalSeconds / 3)
-		tx := database.NewTx("ethan", "carley", 1, "")
+		tx := database.NewTx(acc1, acc2, 1, "")
 
 		// Add it to the Mempool
 		_ = n.AddPendingTX(tx, nInfo)
@@ -65,7 +69,7 @@ func TestNode_Mining(t *testing.T) {
 	// Schedule a new TX 12 seconds from now in a separate thread
 	go func() {
 		time.Sleep(time.Second * miningIntervalSeconds + 2)
-		tx := database.NewTx("ethan", "carley", 2, "")
+		tx := database.NewTx(acc1, acc2, 2, "")
 
 		// Add it to the Mempool
 		_ = n.AddPendingTX(tx, nInfo)
@@ -96,6 +100,9 @@ func TestNode_Mining(t *testing.T) {
 }
 
 func TestNode_MiningStopsOnNewSyncedBlock(t *testing.T) {
+	acc1 := database.NewAccount(wallet.Account1)
+	acc2 := database.NewAccount(wallet.Account2)
+
 	datadir := getTestDataDirPath()
 	err := fs.RemoveDir(datadir)
 	if err != nil {
@@ -105,20 +112,17 @@ func TestNode_MiningStopsOnNewSyncedBlock(t *testing.T) {
 	// Construct a new node instance where the TX originated from
 	nInfo := NewPeerNode("127.0.0.1", 8085, false, database.NewAccount(""), true)
 
-	ethanAccount := database.NewAccount("ethan")
-	carleyAccount := database.NewAccount("carley")
-
-	n := New(datadir, nInfo.IP, nInfo.Port, carleyAccount, nInfo)
+	n := New(datadir, nInfo.IP, nInfo.Port, acc2, nInfo)
 
 	// Allow the mining to run for 30mins at most
 	ctx, closeNode := context.WithTimeout(context.Background(), time.Minute*30)
 
-	tx1 := database.NewTx("ethan", "carley", 1, "")
-	tx2 := database.NewTx("ethan", "carley", 2, "")
+	tx1 := database.NewTx(acc1, acc2, 1, "")
+	tx2 := database.NewTx(acc1, acc2, 2, "")
 	tx2Hash, _ := tx2.Hash()
 
 	// Pre-mine a valid block to simulate a block incoming from a peer
-	validPreMinedPb := NewPendingBlock(database.Hash{}, 0, ethanAccount, []database.Tx{tx1})
+	validPreMinedPb := NewPendingBlock(database.Hash{}, 0, acc1, []database.Tx{tx1})
 	validSyncedBlock, err := Mine(ctx, validPreMinedPb)
 	if err != nil {
 		t.Fatal(err)
@@ -190,15 +194,15 @@ func TestNode_MiningStopsOnNewSyncedBlock(t *testing.T) {
 	go func() {
 		time.Sleep(time.Second * 2)
 
-		startEthanBalance := n.state.Balances[ethanAccount]
-		startCarleyBalance := n.state.Balances[carleyAccount]
+		startEthanBalance := n.state.Balances[acc1]
+		startCarleyBalance := n.state.Balances[acc2]
 
 
 		<- ctx.Done()
 
 		// Query balances again
-		endEthanBalance := n.state.Balances[ethanAccount]
-		endCarleyBalance := n.state.Balances[carleyAccount]
+		endEthanBalance := n.state.Balances[acc1]
+		endCarleyBalance := n.state.Balances[acc2]
 
 		// In TX1 ethan transferred 1 gochain token to carley
 		// In TX2 ethan transferred 2 gochain tokens to carley
