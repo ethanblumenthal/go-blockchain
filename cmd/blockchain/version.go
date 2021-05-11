@@ -9,7 +9,7 @@ import (
 const Major = "1"
 const Minor = "0"
 const Fix = "0"
-const Verbal = "gochain version 1.0.0"
+const Verbal = "gochain version 2.0.0"
 
 var versionCmd = &cobra.Command{
 	Use:   "version",

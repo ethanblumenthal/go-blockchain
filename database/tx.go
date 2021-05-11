@@ -3,6 +3,7 @@ package database
 import (
 	"crypto/sha256"
 	"encoding/json"
+	"time"
 )
 
 type Account string
@@ -16,10 +17,11 @@ type Tx struct {
 	To    Account `json:"to"`
 	Value uint    `json:"value"`
 	Data  string  `json:"data"`
+	Time  uint64  `json:"time"`
 }
 
 func NewTx(from Account, to Account, value uint, data string) Tx {
-	return Tx{from, to, value, data}
+	return Tx{from, to, value, data, uint64(time.Now().Unix())}
 }
 
 func (t Tx) IsReward() bool {
@@ -27,10 +29,10 @@ func (t Tx) IsReward() bool {
 }
 
 func (t Tx) Hash() (Hash, error) {
-	blockJson, err := json.Marshal(t)
+	txJson, err := json.Marshal(t)
 	if err != nil {
 		return Hash{}, err
 	}
 
-	return sha256.Sum256(blockJson), nil
+	return sha256.Sum256(txJson), nil
 }

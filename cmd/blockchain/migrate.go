@@ -42,7 +42,7 @@ var migrateCmd = func() *cobra.Command {
 
 				for {
 					select {
-					case <- ticker.C:
+					case <-ticker.C:
 						if !n.LatestBlockHash().IsEmpty() {
 							closeNode()
 							return
