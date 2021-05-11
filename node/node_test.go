@@ -28,7 +28,8 @@ func TestNode_Run(t *testing.T) {
 
 	// Define a context with timeout for this test
 	// Node will run for 5s
-	ctx, _ := context.WithTimeout(context.Background(), time.Second*5)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
 	err = n.Run(ctx)
 	if err.Error() != "http: Server closed" {
 		// Assert expected behavior
@@ -212,10 +213,10 @@ func TestNode_MiningStopsOnNewSyncedBlock(t *testing.T) {
 			t.Fatalf("Carley expected end balance is %d not %d", expectedEndCarleyBalance, startCarleyBalance)
 		}
 
-		t.Logf("Before Ethan: %d TBB", startEthanBalance)
-        t.Logf("Before Carley: %d TBB", startCarleyBalance)
-        t.Logf("After Ethan: %d TBB", endEthanBalance)
-        t.Logf("After Carley: %d TBB", endCarleyBalance)
+		t.Logf("Start Ethan balance: %d", startEthanBalance)
+        t.Logf("Start Carley balance: %d", startCarleyBalance)
+        t.Logf("End Ethan balance: %d", endEthanBalance)
+        t.Logf("End Carley balance: %d", endCarleyBalance)
 	}()
 	
 	_ = n.Run(ctx)

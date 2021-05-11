@@ -5,14 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"reflect"
 	"sort"
 )
 
 type State struct {
 	Balances        map[Account]uint
-	txMempool       []Tx
 	dbFile          *os.File
 	latestBlock     Block
 	latestBlockHash Hash
@@ -35,14 +33,15 @@ func NewStateFromDisk(dataDir string) (*State, error) {
 		balances[account] = balance
 	}
 
-	dbFilepath := filepath.Join(dataDir, "database", "block.db")
+	dbFilepath := getBlocksDbFilePath(dataDir)
 	f, err := os.OpenFile(dbFilepath, os.O_APPEND|os.O_RDWR, 0600)
 	if err != nil {
 		return nil, err
 	}
 
 	scanner := bufio.NewScanner(f)
-	state := &State{balances, make([]Tx, 0), f, Block{}, Hash{}, false}
+
+	state := &State{balances, f, Block{}, Hash{}, false}
 
 	// Iterate over each the tx.db file's line
 	for scanner.Scan() {
@@ -50,29 +49,29 @@ func NewStateFromDisk(dataDir string) (*State, error) {
 			return nil, err
 		}
 
-		blockFSJson := scanner.Bytes()
-		if len(blockFSJson) == 0 {
+		blockFsJson := scanner.Bytes()
+
+		if len(blockFsJson) == 0 {
 			break
 		}
 
 		// Convert JSON encoded TX into an object (struct)
 		var blockFs BlockFS
-		json.Unmarshal(blockFSJson, &blockFs)
+		err = json.Unmarshal(blockFsJson, &blockFs)
 		if err != nil {
 			return nil, err
 		}
 
-		// Rebuild the state (user balances),
-		// as a series of events
-		err := applyTXs(blockFs.Value.TXs, state)
+		err = applyBlock(blockFs.Value, state)
 		if err != nil {
 			return nil, err
 		}
-		
+
 		state.latestBlock = blockFs.Value
 		state.latestBlockHash = blockFs.Key
 		state.hasGenesisBlock = true
 	}
+
 	return state, nil
 }
 
@@ -112,7 +111,8 @@ func (s *State) AddBlock(b Block) (Hash, error) {
 	fmt.Printf("\t%s\n", blockFsJson)
 
 	// Write it to the DB file on a new line
-	if _, err = s.dbFile.Write(append(blockFsJson, '\n')); err != nil {
+	_, err = s.dbFile.Write(append(blockFsJson, '\n'))
+	if err != nil {
 		return Hash{}, err
 	}
 
@@ -140,8 +140,8 @@ func (s *State) LatestBlockHash() Hash {
 	return s.latestBlockHash
 }
 
-func (s *State) Close() {
-	s.dbFile.Close()
+func (s *State) Close() error {
+	return s.dbFile.Close()
 }
 
 func (s *State) copy() State {
@@ -149,19 +149,15 @@ func (s *State) copy() State {
 	c.hasGenesisBlock = s.hasGenesisBlock
 	c.latestBlock = s.latestBlock
 	c.latestBlockHash = s.latestBlockHash
-	c.txMempool = make([]Tx, len(s.txMempool))
 	c.Balances = make(map[Account]uint)
 
 	for acc, balance := range s.Balances {
 		c.Balances[acc] = balance
 	}
 
-	for _, tx := range s.txMempool {
-		c.txMempool = append(c.txMempool, tx)
-	}
-
 	return c
 }
+
 
 // Verifies if block can be added to the blockchain
 // Block metadata and transactions (sufficient balances) are verified
