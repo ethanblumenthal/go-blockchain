@@ -13,6 +13,9 @@ const flagIP = "ip"
 const flagPort = "port"
 const flagMiner = "miner"
 const flagKeystoreFile = "keystore"
+const flagBootstrapAcc = "bootstrap-account"
+const flagBootstrapIp = "bootstrap-ip"
+const flagBootstrapPort = "bootstrap-port"
 
 func main() {
 	var gochainCmd = &cobra.Command{

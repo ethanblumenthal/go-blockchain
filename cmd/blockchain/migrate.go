@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethanblumenthal/golang-blockchain/database"
 	"github.com/ethanblumenthal/golang-blockchain/node"
+	"github.com/ethanblumenthal/golang-blockchain/wallet"
 	"github.com/spf13/cobra"
 )
 
@@ -19,21 +20,18 @@ var migrateCmd = func() *cobra.Command {
 			port, _ := cmd.Flags().GetUint64(flagPort)
 			miner, _ := cmd.Flags().GetString(flagMiner)
 
-			peer := node.NewPeerNode(
-				"127.0.0.1",
-				8080,
-				true,
-				database.NewAccount("ethan"),
-				false,
-			)
+			acc1 := database.NewAccount(wallet.Account1)
+			acc2 := database.NewAccount(wallet.Account2)
+			acc3 := database.NewAccount(wallet.Account3)
 
+			peer := node.NewPeerNode("127.0.0.1", 8080, true, acc1, false)
 			n := node.New(getDataDirFromCmd(cmd), ip, port, database.NewAccount(miner), peer)
 
-			n.AddPendingTX(database.NewTx("ethan", "ethan", 3, ""), peer)
-			n.AddPendingTX(database.NewTx("ethan", "carley", 2000, ""), peer)
-			n.AddPendingTX(database.NewTx("carley", "ethan", 1, ""), peer)
-			n.AddPendingTX(database.NewTx("carley", "drew", 1000, ""), peer)
-			n.AddPendingTX(database.NewTx("carley", "ethan", 50, ""), peer)
+			n.AddPendingTX(database.NewTx(acc1, acc1, 3, ""), peer)
+			n.AddPendingTX(database.NewTx(acc1, acc2, 2000, ""), peer)
+			n.AddPendingTX(database.NewTx(acc2, acc1, 1, ""), peer)
+			n.AddPendingTX(database.NewTx(acc2, acc3, 1000, ""), peer)
+			n.AddPendingTX(database.NewTx(acc2, acc1, 50, ""), peer)
 
 			ctx, closeNode := context.WithTimeout(context.Background(), time.Minute*15)
 
