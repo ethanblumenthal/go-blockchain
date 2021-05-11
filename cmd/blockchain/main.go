@@ -12,6 +12,7 @@ const flagDataDir = "datadir"
 const flagIP = "ip"
 const flagPort = "port"
 const flagMiner = "miner"
+const flagKeystoreFile = "keystore"
 
 func main() {
 	var gochainCmd = &cobra.Command{
@@ -23,6 +24,7 @@ func main() {
 	gochainCmd.AddCommand(migrateCmd())
 	gochainCmd.AddCommand(versionCmd)
 	gochainCmd.AddCommand(balancesCmd())
+	gochainCmd.AddCommand(walletCmd())
 	gochainCmd.AddCommand(runCmd())
 
 	err := gochainCmd.Execute()
@@ -35,6 +37,11 @@ func main() {
 func addDefaultRequiredFlags(cmd *cobra.Command) {
 	cmd.Flags().String(flagDataDir, "", "Absolute path to the node data dir where the database will be stored")
 	cmd.MarkFlagRequired(flagDataDir)
+}
+
+func addKeystoreFlag(cmd *cobra.Command) {
+	cmd.Flags().String(flagDataDir, "", "Absolute path to the encrypted keystore file")
+	cmd.MarkFlagRequired(flagKeystoreFile)
 }
 
 func getDataDirFromCmd(cmd *cobra.Command) string {
