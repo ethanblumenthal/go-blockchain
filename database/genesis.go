@@ -3,19 +3,21 @@ package database
 import (
 	"encoding/json"
 	"io/ioutil"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 var genesisJson = `
 {
   "genesis_time": "2019-05-05T00:00:00.000000000Z",
-  "chain_id": "golang-blockchain",
+  "chain_id": "gochain",
   "balances": {
-    "ethan": 1000000
+    "0x22ba1F80452E6220c7cc6ea2D1e3EEDDaC5F694A": 1000000
   }
 }`
 
 type Genesis struct {
-	Balances map[Account]uint `json:"balances"`
+	Balances map[common.Address]uint `json:"balances"`
 }
 
 func loadGenesis(path string) (Genesis, error) {

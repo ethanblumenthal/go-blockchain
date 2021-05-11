@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/ethanblumenthal/golang-blockchain/database"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 type ErrRes struct {
@@ -13,8 +14,8 @@ type ErrRes struct {
 }
 
 type BalancesRes struct {
-	Hash     database.Hash             `json:"block_hash"`
-	Balances map[database.Account]uint `json:"balances"`
+	Hash     database.Hash           `json:"block_hash"`
+	Balances map[common.Address]uint `json:"balances"`
 }
 
 type TxAddReq struct {
