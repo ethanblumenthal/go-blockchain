@@ -4,10 +4,13 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"io/ioutil"
 	"math/big"
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/ethanblumenthal/golang-blockchain/database"
+	"github.com/ethanblumenthal/golang-blockchain/fs"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 )
@@ -86,5 +89,83 @@ func TestSign(t *testing.T) {
 			account.Hex(),
 			recoveredAccount.Hex(),
 		)
+	}
+}
+
+func TestSignTxWithKeystoreAccount(t *testing.T) {
+	tmpDir, err := ioutil.TempDir("", "wallet_test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fs.RemoveDir(tmpDir)
+
+	acc1, err := NewKeystoreAccount(tmpDir, testKeystoreAccountsPwd)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	acc2, err := NewKeystoreAccount(tmpDir, testKeystoreAccountsPwd)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	tx := database.NewTx(acc1, acc2, 100, "")
+
+	signedTx, err := SignTxWithKeystoreAccount(tx, acc1, testKeystoreAccountsPwd, GetKeystoreDirPath(tmpDir))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	spew.Dump(signedTx.Encode())
+
+	ok, err := signedTx.IsAuthentic()
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	if !ok {
+		t.Fatal("the TX was signed by 'from' account and should have been authentic")
+	}
+}
+
+func TestSignForgedTxWithKeystoreAccount(t *testing.T) {
+	tmpDir, err := ioutil.TempDir("", "wallet_test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fs.RemoveDir(tmpDir)
+
+	hacker, err := NewKeystoreAccount(tmpDir, testKeystoreAccountsPwd)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	account, err := NewKeystoreAccount(tmpDir, testKeystoreAccountsPwd)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	forgedTx := database.NewTx(account, hacker, 100, "")
+
+	signedTx, err := SignTxWithKeystoreAccount(forgedTx, hacker, testKeystoreAccountsPwd, GetKeystoreDirPath(tmpDir))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	ok, err := signedTx.IsAuthentic()
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	if !ok {
+		t.Fatal("the TX 'from' attribute was forged and should have not be authentic")
 	}
 }
