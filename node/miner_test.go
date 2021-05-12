@@ -16,17 +16,14 @@ import (
 )
 
 func TestValidBlockHash(t *testing.T) {
-	// Creates a random hex string starting with 6 zeroes
 	hexHash := "000000fa04f8160395c387277f8b2f14837603383d33809a4db586086168edfa"
 	var hash = database.Hash{}
 
-	// Convert it to raw bytes
 	hex.Decode(hash[:], []byte(hexHash))
 
-	// Validate the hash
 	isValid := database.IsBlockHashValid(hash)
 	if !isValid {
-		t.Fatalf("hash '%s' with 6 zeroes should be valid", hexHash)
+		t.Fatalf("hash '%s' starting with 6 zeroes is suppose to be valid", hexHash)
 	}
 }
 
@@ -41,6 +38,7 @@ func TestInvalidBlockHash(t *testing.T) {
 		t.Fatal("hash is not suppose to be valid")
 	}
 }
+
 func TestMine(t *testing.T) {
 	minerPrivKey, _, miner, err := generateKey()
 	if err != nil {
@@ -101,17 +99,23 @@ func generateKey() (*ecdsa.PrivateKey, ecdsa.PublicKey, common.Address, error) {
 	pubKey := privKey.PublicKey
 	pubKeyBytes := elliptic.Marshal(crypto.S256(), pubKey.X, pubKey.Y)
 	pubKeyBytesHash := crypto.Keccak256(pubKeyBytes[1:])
+
 	account := common.BytesToAddress(pubKeyBytesHash[12:])
 
 	return privKey, pubKey, account, nil
 }
 
-func createRandomPendingBlock(privKey *ecdsa.PrivateKey, account common.Address) (PendingBlock, error) {
-	tx := database.NewTx(account, database.NewAccount(testKsAccount2), 1, 1, "")
+func createRandomPendingBlock(privKey *ecdsa.PrivateKey, acc common.Address) (PendingBlock, error) {
+	tx := database.NewTx(acc, database.NewAccount(testKsAccount2), 1, 1, "")
 	signedTx, err := wallet.SignTx(tx, privKey)
 	if err != nil {
 		return PendingBlock{}, err
 	}
 
-	return NewPendingBlock(database.Hash{}, 0, account, []database.SignedTx{signedTx}), err
+	return NewPendingBlock(
+		database.Hash{},
+		0,
+		acc,
+		[]database.SignedTx{signedTx},
+	), nil
 }

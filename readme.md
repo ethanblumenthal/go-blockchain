@@ -39,7 +39,7 @@ go get -u github.com/ethanblumenthal/golang-blockchain
 
 ## Usage
 
-## Install
+### Install
 
 ```
 go install ./cmd/...
