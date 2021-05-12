@@ -2,6 +2,9 @@ package node
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"encoding/hex"
 	"testing"
 	"time"
@@ -9,6 +12,7 @@ import (
 	"github.com/ethanblumenthal/golang-blockchain/database"
 	"github.com/ethanblumenthal/golang-blockchain/wallet"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 func TestValidBlockHash(t *testing.T) {
@@ -38,8 +42,16 @@ func TestInvalidBlockHash(t *testing.T) {
 	}
 }
 func TestMine(t *testing.T) {
-	miner := database.NewAccount(wallet.Account1)
-	pendingBlock := createRandomPendingBlock(miner)
+	minerPrivKey, _, miner, err := generateKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pendingBlock, err := createRandomPendingBlock(minerPrivKey, miner)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	ctx := context.Background()
 
 	minedBlock, err := Mine(ctx, pendingBlock)
@@ -62,23 +74,44 @@ func TestMine(t *testing.T) {
 }
 
 func TestMineWithTimeout(t *testing.T) {
-	miner := database.NewAccount(wallet.Account1)
-	pendingBlock := createRandomPendingBlock(miner)
+	minerPrivKey, _, miner, err := generateKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pendingBlock, err := createRandomPendingBlock(minerPrivKey, miner)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	ctx, _ := context.WithTimeout(context.Background(), time.Microsecond*100)
 
-	_, err := Mine(ctx, pendingBlock)
+	_, err = Mine(ctx, pendingBlock)
 	if err == nil {
 		t.Fatal(err)
 	}
 }
 
-func createRandomPendingBlock(miner common.Address) PendingBlock {
-	return NewPendingBlock(
-		database.Hash{},
-		0,
-		miner,
-		[]database.Tx{
-			database.Tx{From: database.NewAccount(wallet.Account1), To: database.NewAccount(wallet.Account2), Value: 1, Time: 1579451695, Data: ""},
-		},
-	)
+func generateKey() (*ecdsa.PrivateKey, ecdsa.PublicKey, common.Address, error) {
+	privKey, err := ecdsa.GenerateKey(crypto.S256(), rand.Reader)
+	if err != nil {
+		return nil, ecdsa.PublicKey{}, common.Address{}, err
+	}
+
+	pubKey := privKey.PublicKey
+	pubKeyBytes := elliptic.Marshal(crypto.S256(), pubKey.X, pubKey.Y)
+	pubKeyBytesHash := crypto.Keccak256(pubKeyBytes[1:])
+	account := common.BytesToAddress(pubKeyBytesHash[12:])
+
+	return privKey, pubKey, account, nil
+}
+
+func createRandomPendingBlock(privKey *ecdsa.PrivateKey, account common.Address) (PendingBlock, error) {
+	tx := database.NewTx(account, database.NewAccount(testKsAccount2), 1, "")
+	signedTx, err := wallet.SignTx(tx, privKey)
+	if err != nil {
+		return PendingBlock{}, err
+	}
+
+	return NewPendingBlock(database.Hash{}, 0, account, []database.SignedTx{signedTx}), err
 }

@@ -2,6 +2,9 @@ package node
 
 import (
 	"context"
+	"encoding/json"
+	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -10,22 +13,29 @@ import (
 	"github.com/ethanblumenthal/golang-blockchain/database"
 	"github.com/ethanblumenthal/golang-blockchain/fs"
 	"github.com/ethanblumenthal/golang-blockchain/wallet"
+	"github.com/ethereum/go-ethereum/common"
 )
 
-func getTestDataDirPath() string {
-	return filepath.Join(os.TempDir(), ".gochain_test")
-}
+const testKsAccount1 = "0x3eb92807f1f91a8d4d85bc908c7f86dcddb1df57"
+const testKsAccount2 = "0x6fdc0d8d15ae6b4ebf45c52fd2aafbcbb19a65c8"
+const testKsAccount1File = "test_account1--3eb92807f1f91a8d4d85bc908c7f86dcddb1df57"
+const testKsAccount2File = "test_account2--6fdc0d8d15ae6b4ebf45c52fd2aafbcbb19a65c8"
+const testKsAccountsPwd = "security123"
 
 func TestNode_Run(t *testing.T) {
 	// Remove the test directory if it already exists
-	datadir := getTestDataDirPath()
-	err := fs.RemoveDir(datadir)
+	datadir, err := getTestDataDirPath()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = fs.RemoveDir(datadir)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Construct a new node instance
-	n := New(datadir, "127.0.0.1", 8085, database.NewAccount(wallet.Account1), PeerNode{})
+	n := New(datadir, "127.0.0.1", 8085, database.NewAccount(DefaultMiner), PeerNode{})
 
 	// Define a context with timeout for this test
 	// Node will run for 5s
@@ -33,17 +43,31 @@ func TestNode_Run(t *testing.T) {
 	defer cancel()
 	err = n.Run(ctx)
 	if err.Error() != "http: Server closed" {
-		// Assert expected behavior
 		t.Fatal("node server was supposed to close after 5s")
 	}
 }
 
 func TestNode_Mining(t *testing.T) {
-	acc1 := database.NewAccount(wallet.Account1)
-	acc2 := database.NewAccount(wallet.Account2)
+	acc1 := database.NewAccount(testKsAccount1)
+	acc2 := database.NewAccount(testKsAccount2)
 
-	datadir := getTestDataDirPath()
-	err := fs.RemoveDir(datadir)
+	genesisBalances := make(map[common.Address]uint)
+	genesisBalances[acc1] = 1000000
+	genesis := database.Genesis{Balances: genesisBalances}
+	genesisJson, err := json.Marshal(genesis)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dataDir, err := getTestDataDirPath()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = database.InitDataDirIfNotExists(dataDir, genesisJson)
+	defer fs.RemoveDir(dataDir)
+
+	err = copyKeystoreFilesIntoTestDataDirPath(dataDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,27 +76,39 @@ func TestNode_Mining(t *testing.T) {
 	nInfo := NewPeerNode("127.0.0.1", 8085, false, database.NewAccount(""), true)
 
 	// Construct a new node instance and configure Ethan as a miner
-	n := New(datadir, nInfo.IP, nInfo.Port, acc1, nInfo)
+	n := New(dataDir, nInfo.IP, nInfo.Port, acc1, nInfo)
 
 	// Allow the mining to run for 30mins at most
-	ctx, closeNode := context.WithTimeout(context.Background(), time.Minute*30)
+	ctx, closeNode := context.WithTimeout(context.Background(), time.Minute * 30)
 
 	// Schedule a new TX 3 seconds from now in a separate thread
 	go func() {
 		time.Sleep(time.Second * miningIntervalSeconds / 3)
 		tx := database.NewTx(acc1, acc2, 1, "")
 
+		signedTx, err := wallet.SignTxWithKeystoreAccount(tx, acc1, testKsAccountsPwd, wallet.GetKeystoreDirPath(dataDir))
+		if err != nil {
+			t.Error(err)
+			return
+		}
+
 		// Add it to the Mempool
-		_ = n.AddPendingTX(tx, nInfo)
+		_ = n.AddPendingTX(signedTx, nInfo)
 	}()
 
 	// Schedule a new TX 12 seconds from now in a separate thread
 	go func() {
 		time.Sleep(time.Second * miningIntervalSeconds + 2)
+
 		tx := database.NewTx(acc1, acc2, 2, "")
+		signedTx, err := wallet.SignTxWithKeystoreAccount(tx, acc1, testKsAccountsPwd, wallet.GetKeystoreDirPath(dataDir))
+		if err != nil {
+			t.Error(err)
+			return
+		}
 
 		// Add it to the Mempool
-		_ = n.AddPendingTX(tx, nInfo)
+		_ = n.AddPendingTX(signedTx, nInfo)
 	}()
 
 	go func() {
@@ -100,11 +136,26 @@ func TestNode_Mining(t *testing.T) {
 }
 
 func TestNode_MiningStopsOnNewSyncedBlock(t *testing.T) {
-	acc1 := database.NewAccount(wallet.Account1)
-	acc2 := database.NewAccount(wallet.Account2)
+	acc1 := database.NewAccount(testKsAccount1)
+	acc2 := database.NewAccount(testKsAccount2)
 
-	datadir := getTestDataDirPath()
-	err := fs.RemoveDir(datadir)
+	genesisBalances := make(map[common.Address]uint)
+	genesisBalances[acc1] = 1000000
+	genesis := database.Genesis{Balances: genesisBalances}
+	genesisJson, err := json.Marshal(genesis)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dataDir, err := getTestDataDirPath()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = database.InitDataDirIfNotExists(dataDir, genesisJson)
+	defer fs.RemoveDir(dataDir)
+
+	err = copyKeystoreFilesIntoTestDataDirPath(dataDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,17 +163,33 @@ func TestNode_MiningStopsOnNewSyncedBlock(t *testing.T) {
 	// Construct a new node instance where the TX originated from
 	nInfo := NewPeerNode("127.0.0.1", 8085, false, database.NewAccount(""), true)
 
-	n := New(datadir, nInfo.IP, nInfo.Port, acc2, nInfo)
+	n := New(dataDir, nInfo.IP, nInfo.Port, acc2, nInfo)
 
 	// Allow the mining to run for 30mins at most
 	ctx, closeNode := context.WithTimeout(context.Background(), time.Minute*30)
 
 	tx1 := database.NewTx(acc1, acc2, 1, "")
 	tx2 := database.NewTx(acc1, acc2, 2, "")
-	tx2Hash, _ := tx2.Hash()
+
+	signedTx1, err := wallet.SignTxWithKeystoreAccount(tx1, acc1, testKsAccountsPwd, wallet.GetKeystoreDirPath(dataDir))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	signedTx2, err := wallet.SignTxWithKeystoreAccount(tx2, acc1, testKsAccountsPwd, wallet.GetKeystoreDirPath(dataDir))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	tx2Hash, err := signedTx2.Hash()
+	if err != nil {
+		t.Error(err)
+		return
+	}
 
 	// Pre-mine a valid block to simulate a block incoming from a peer
-	validPreMinedPb := NewPendingBlock(database.Hash{}, 0, acc1, []database.Tx{tx1})
+	validPreMinedPb := NewPendingBlock(database.Hash{}, 0, acc1, []database.SignedTx{signedTx1})
 	validSyncedBlock, err := Mine(ctx, validPreMinedPb)
 	if err != nil {
 		t.Fatal(err)
@@ -132,12 +199,12 @@ func TestNode_MiningStopsOnNewSyncedBlock(t *testing.T) {
 	go func() {
 		time.Sleep(time.Second * (miningIntervalSeconds - 2))
 
-		err := n.AddPendingTX(tx1, nInfo)
+		err := n.AddPendingTX(signedTx1, nInfo)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		err = n.AddPendingTX(tx2, nInfo)
+		err = n.AddPendingTX(signedTx2, nInfo)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -197,7 +264,6 @@ func TestNode_MiningStopsOnNewSyncedBlock(t *testing.T) {
 		startEthanBalance := n.state.Balances[acc1]
 		startCarleyBalance := n.state.Balances[acc2]
 
-
 		<- ctx.Done()
 
 		// Query balances again
@@ -233,3 +299,52 @@ func TestNode_MiningStopsOnNewSyncedBlock(t *testing.T) {
 		t.Fatal("no pending TXs should be left to mine")
 	}
 }
+
+func getTestDataDirPath() (string, error) {
+	return ioutil.TempDir(os.TempDir(), "gochain_test")
+}
+
+func copyKeystoreFilesIntoTestDataDirPath(dataDir string) error {
+	account1SrcKs, err := os.Open(testKsAccount1File)
+	if err != nil {
+		return err
+	}
+	defer account1SrcKs.Close()
+
+	ksDir := filepath.Join(wallet.GetKeystoreDirPath(dataDir))
+
+	err = os.Mkdir(ksDir, 0777)
+	if err != nil {
+		return err
+	}
+
+	account1DstKs, err := os.Create(filepath.Join(ksDir, testKsAccount1File))
+	if err != nil {
+		return err
+	}
+	defer account1DstKs.Close()
+
+	_, err = io.Copy(account1DstKs, account1SrcKs)
+	if err != nil {
+		return err
+	}
+
+	account2SrcKs, err := os.Open(testKsAccount2File)
+	if err != nil {
+		return err
+	}
+	defer account2SrcKs.Close()
+
+	account2DstKs, err := os.Create(filepath.Join(ksDir, testKsAccount2File))
+	if err != nil {
+		return err
+	}
+	defer account2DstKs.Close()
+
+	_, err = io.Copy(account2DstKs, account2SrcKs)
+	if err != nil {
+		return err
+	}
+
+	return nil
+} 

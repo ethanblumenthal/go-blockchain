@@ -12,6 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
+const testKeystoreAccountsPwd = "security123"
+
 func TestSignCyrptoParams(t *testing.T) {
 	// Generate key on the fly
 	privKey, err := ecdsa.GenerateKey(crypto.S256(), rand.Reader)
