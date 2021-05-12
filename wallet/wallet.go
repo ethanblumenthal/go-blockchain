@@ -2,6 +2,7 @@ package wallet
 
 import (
 	"crypto/ecdsa"
+	"crypto/rand"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/google/uuid"
 )
 
 const keystoreDirName = "keystore"
@@ -98,4 +100,20 @@ func Verify(msg, sig []byte) (*ecdsa.PublicKey, error) {
 	}
 
 	return recoveredPubKey, err
+}
+
+func NewRandomKey() (*keystore.Key, error) {
+	privateKeyECDSA, err := ecdsa.GenerateKey(crypto.S256(), rand.Reader)
+	if err != nil {
+		return nil, err
+	}
+
+	id, _ := uuid.NewRandom()
+	key := &keystore.Key{
+		Id:         id,
+		Address:    crypto.PubkeyToAddress(privateKeyECDSA.PublicKey),
+		PrivateKey: privateKeyECDSA,
+	}
+
+	return key, nil
 }
