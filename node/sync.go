@@ -10,6 +10,7 @@ import (
 )
 
 func (n *Node) sync(ctx context.Context) error {
+	n.doSync()
 	ticker := time.NewTicker(45 * time.Second)
 
 	for {
@@ -29,12 +30,15 @@ func (n *Node) doSync() {
 			continue
 		}
 
+		if peer.IP == "" {
+			continue
+		}
 		fmt.Printf("Searching for new peers and their blocks and peers: '%s'\n", peer.TcpAddress())
 
 		status, err := queryPeerStatus(peer)
 		if err != nil {
 			fmt.Printf("ERROR: %s\n", err)
-			fmt.Printf("Peer '%s' was removed from KnownPeers\n", peer.TcpAddress())
+			fmt.Printf("Peer '%s' was removed from known peers\n", peer.TcpAddress())
 
 			n.RemovePeer(peer)
 			continue
@@ -52,7 +56,13 @@ func (n *Node) doSync() {
 			continue
 		}
 
-		err = n.syncKnownPeers(peer, status)
+		err = n.syncKnownPeers(status)
+		if err != nil {
+			fmt.Printf("ERROR: %s\n", err)
+			continue
+		}
+
+		err = n.syncPendingTXs(peer, status.PendingTXs)
 		if err != nil {
 			fmt.Printf("ERROR: %s\n", err)
 			continue
@@ -90,14 +100,34 @@ func (n *Node) syncBlocks(peer PeerNode, status StatusRes) error {
 		return err
 	}
 
-	return n.state.AddBlocks(blocks)
+	for _, block := range blocks {
+		err = n.addBlock(block)
+		if err != nil {
+			return err
+		}
+
+		n.newSyncedBlocks <- block
+	}
+
+	return nil
 }
 
-func (n *Node) syncKnownPeers(peer PeerNode, status StatusRes) error {
+func (n *Node) syncKnownPeers(status StatusRes) error {
 	for _, statusPeer := range status.KnownPeers {
 		if !n.IsKnownPeer(statusPeer) {
 			fmt.Printf("Found new peer %s\n", statusPeer.TcpAddress())
 			n.AddPeer(statusPeer)
+		}
+	}
+
+	return nil
+}
+
+func (n *Node) syncPendingTXs(peer PeerNode, txs []database.SignedTx) error {
+	for _, tx := range txs {
+		err := n.AddPendingTX(tx, peer)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -110,7 +140,8 @@ func (n *Node) joinKnownPeers(peer PeerNode) error {
 	}
 
 	url := fmt.Sprintf(
-		"http://%s%s?%s=%s&%s=%d",
+		"%s://%s%s?%s=%s&%s=%d",
+		peer.ApiProtocol(),
 		peer.TcpAddress(),
 		endpointAddPeer,
 		endpointAddPeerQueryKeyIP,
@@ -146,7 +177,7 @@ func (n *Node) joinKnownPeers(peer PeerNode) error {
 }
 
 func queryPeerStatus(peer PeerNode) (StatusRes, error) {
-	url := fmt.Sprintf("http://%s%s", peer.TcpAddress(), endpointStatus)
+	url := fmt.Sprintf("%s://%s%s", peer.ApiProtocol(), peer.TcpAddress(), endpointStatus)
 	res, err := http.Get(url)
 	if err != nil {
 		return StatusRes{}, err
@@ -165,7 +196,8 @@ func fetchBlocksFromPeer(peer PeerNode, fromBlock database.Hash) ([]database.Blo
 	fmt.Printf("Importing blocks from Peer %s...\n", peer.TcpAddress())
 
 	url := fmt.Sprintf(
-		"http://%s%s?%s=%s",
+		"%s://%s%s?%s=%s",
+		peer.ApiProtocol(),
 		peer.TcpAddress(),
 		endpointSync,
 		endpointSyncQueryKeyFromBlock,

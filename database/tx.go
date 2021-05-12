@@ -10,12 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-type Account string
-
-func NewAccount(value string) common.Address {
-	return common.HexToAddress(value)
-}
-
 type Tx struct {
 	From  common.Address `json:"from"`
 	To    common.Address `json:"to"`
@@ -30,7 +24,11 @@ type SignedTx struct {
 	Sig []byte `json:"signature"`
 }
 
-func NewTx(from common.Address, to common.Address, value uint, nonce uint, data string) Tx {
+func NewAccount(value string) common.Address {
+	return common.HexToAddress(value)
+}
+
+func NewTx(from, to common.Address, value, nonce uint, data string) Tx {
 	return Tx{from, to, value, nonce, data, uint64(time.Now().Unix())}
 }
 
@@ -59,19 +57,26 @@ func (t Tx) Encode() ([]byte, error) {
 	return json.Marshal(t)
 }
 
+func (t SignedTx) Hash() (Hash, error) {
+	txJson, err := t.Encode()
+	if err != nil {
+		return Hash{}, err
+	}
+
+	return sha256.Sum256(txJson), nil
+}
+
 func (t SignedTx) IsAuthentic() (bool, error) {
-	// Convert to 32 bytes hash
 	txHash, err := t.Tx.Hash()
 	if err != nil {
 		return false, err
 	}
-	// Verify if the signature is compatible with this msg (TX)
+
 	recoveredPubKey, err := crypto.SigToPub(txHash[:], t.Sig)
 	if err != nil {
 		return false, err
 	}
 
-	// Convert the recovered public key to an account
 	recoveredPubKeyBytes := elliptic.Marshal(crypto.S256(), recoveredPubKey.X, recoveredPubKey.Y)
 	recoveredPubKeyBytesHash := crypto.Keccak256(recoveredPubKeyBytes[1:])
 	recoveredAccount := common.BytesToAddress(recoveredPubKeyBytesHash[12:])

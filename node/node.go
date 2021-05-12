@@ -29,10 +29,10 @@ const endpointAddPeerQueryKeyMiner = "miner"
 const miningIntervalSeconds = 10
 
 type PeerNode struct {
-	IP          string           `json:"ip"`
-	Port        uint64           `json:"port"`
-	IsBootstrap bool             `json:"is_bootstrap"`
-	Account     common.Address   `json:"account"`
+	IP          string         `json:"ip"`
+	Port        uint64         `json:"port"`
+	IsBootstrap bool           `json:"is_bootstrap"`
+	Account     common.Address `json:"account"`
 	connected   bool
 }
 
@@ -53,13 +53,20 @@ func (pn PeerNode) TcpAddress() string {
 	return fmt.Sprintf("%s:%d", pn.IP, pn.Port)
 }
 
-func New(dataDir string, ip string, port uint64, account common.Address, bootstrap PeerNode) *Node {
-	knownPeers := make(map[string]PeerNode)
-	knownPeers[bootstrap.TcpAddress()] = bootstrap
+func (pn PeerNode) ApiProtocol() string {
+	if pn.Port == HttpSSLPort {
+		return "https"
+	}
 
-	return &Node{
+	return "http"
+}
+
+func New(dataDir string, ip string, port uint64, acc common.Address, bootstrap PeerNode) *Node {
+	knownPeers := make(map[string]PeerNode)
+
+	n := &Node{
 		dataDir:         dataDir,
-		info:            NewPeerNode(ip, port, false, account, true),
+		info:            NewPeerNode(ip, port, false, acc, true),
 		knownPeers:      knownPeers,
 		pendingTXs:      make(map[string]database.SignedTx),
 		archivedTXs:     make(map[string]database.SignedTx),
@@ -67,6 +74,9 @@ func New(dataDir string, ip string, port uint64, account common.Address, bootstr
 		newPendingTXs:   make(chan database.SignedTx, 10000),
 		isMining:        false,
 	}
+
+	n.AddPeer(bootstrap)
+	return n
 }
 
 func NewPeerNode(ip string, port uint64, isBootstrap bool, account common.Address, connected bool) PeerNode {
@@ -125,19 +135,18 @@ func (n *Node) serveHttp(ctx context.Context, isSSLDisabled bool, sslEmail strin
 	})
 
 	if isSSLDisabled {
-		server := &http.Server{Addr: fmt.Sprintf(":%d", n.info.Port)}
+		server := &http.Server{Addr: fmt.Sprintf(":%d", n.info.Port), Handler: handler}
 
 		go func() {
 			<-ctx.Done()
 			_ = server.Close()
 		}()
-	
+
 		err := server.ListenAndServe()
-		// This shouldn't be an error
 		if err != http.ErrServerClosed {
 			return err
 		}
-	
+
 		return nil
 	} else {
 		certmagic.DefaultACME.Email = sslEmail
@@ -153,7 +162,7 @@ func (n *Node) mine(ctx context.Context) error {
 
 	for {
 		select {
-		case <- ticker.C:
+		case <-ticker.C:
 			go func() {
 				if len(n.pendingTXs) > 0 && !n.isMining {
 					n.isMining = true
@@ -168,7 +177,7 @@ func (n *Node) mine(ctx context.Context) error {
 				}
 			}()
 
-		case block, _ := <- n.newSyncedBlocks:
+		case block, _ := <-n.newSyncedBlocks:
 			if n.isMining {
 				blockHash, _ := block.Hash()
 				fmt.Printf("\nPeer mined next Block '%s' faster :(\n", blockHash.Hex())
@@ -177,7 +186,7 @@ func (n *Node) mine(ctx context.Context) error {
 				stopCurrentMining()
 			}
 
-		case <- ctx.Done():
+		case <-ctx.Done():
 			ticker.Stop()
 			return nil
 		}
@@ -199,7 +208,7 @@ func (n *Node) minePendingTXs(ctx context.Context) error {
 
 	n.removeMinedPendingTXs(minedBlock)
 
-	_, err = n.state.AddBlock(minedBlock)
+	err = n.addBlock(minedBlock)
 	if err != nil {
 		return err
 	}
@@ -209,7 +218,7 @@ func (n *Node) minePendingTXs(ctx context.Context) error {
 
 func (n *Node) removeMinedPendingTXs(block database.Block) {
 	if len(block.TXs) > 0 && len(n.pendingTXs) > 0 {
-		fmt.Println("Updating in-memory pending TXs pools")
+		fmt.Println("Updating in-memory pending TXs pool:")
 	}
 
 	for _, tx := range block.TXs {
@@ -251,6 +260,11 @@ func (n *Node) AddPendingTX(tx database.SignedTx, fromPeer PeerNode) error {
 		return err
 	}
 
+	err = n.validateTxBeforeAddingToMempool(tx)
+	if err != nil {
+		return err
+	}
+
 	_, isAlreadyPending := n.pendingTXs[txHash.Hex()]
 	_, isArchived := n.archivedTXs[txHash.Hex()]
 
@@ -261,6 +275,23 @@ func (n *Node) AddPendingTX(tx database.SignedTx, fromPeer PeerNode) error {
 	}
 
 	return nil
+}
+
+func (n *Node) addBlock(block database.Block) error {
+	_, err := n.state.AddBlock(block)
+	if err != nil {
+		return err
+	}
+
+	// Reset the pending state
+	pendingState := n.state.Copy()
+	n.pendingState = &pendingState
+
+	return nil
+}
+
+func (n *Node) validateTxBeforeAddingToMempool(tx database.SignedTx) error {
+	return database.ApplyTx(tx, n.pendingState)
 }
 
 func (n *Node) getPendingTXsAsArray() []database.SignedTx {
