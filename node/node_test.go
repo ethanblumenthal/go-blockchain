@@ -145,11 +145,6 @@ func TestNode_Mining(t *testing.T) {
 	}
 }
 
-// Expect:
-//     ERROR: wrong TX. Sender '0x3EB9....' is forged
-//
-// TODO: Improve this with TX Receipt concept in next chapters.
-// TODO: Improve this with a 100% clear error check.
 func TestNode_ForgedTx(t *testing.T) {
 	dataDir, account1, account2, err := setupTestNodeDir(1000000)
 	if err != nil {

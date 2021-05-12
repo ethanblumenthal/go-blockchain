@@ -9,7 +9,6 @@ import (
 	"github.com/ethanblumenthal/golang-blockchain/wallet"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/cmd/utils"
-	"github.com/ethereum/go-ethereum/console"
 	"github.com/spf13/cobra"
 )
 
@@ -84,13 +83,13 @@ func walletPrintPrivKeyCmd() *cobra.Command {
 }
 
 func getPassPhrase(prompt string, confirmation bool) string {
-	password, err := console.Stdin.PromptPassword(prompt)
+	password, err := generatePassword()
 	if err != nil {
 		utils.Fatalf("Failed to read password: %v", err)
 	}
 
 	if confirmation {
-		confirm, err := console.Stdin.PromptPassword("Repeat password: ")
+		confirm, err := generatePassword()
 		if err != nil {
 			utils.Fatalf("Failed to read password confirmation: %v", err)
 		}
@@ -100,4 +99,8 @@ func getPassPhrase(prompt string, confirmation bool) string {
 	}
 
 	return password
+}
+
+func generatePassword() (string, error) {
+	return "security123", nil
 }

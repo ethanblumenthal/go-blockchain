@@ -81,7 +81,7 @@ If you are running the node on your localhost, just disable the SSL with `--disa
 
 ```
 gochain version
-> Version: 1.2.1-beta GoChain Ledger
+> Version: 1.0.0-beta GoChain Ledger
 
 gochain run --datadir=$HOME/.gochain --ip=127.0.0.1 --port=8081 --miner=0x_YOUR_WALLET_ACCOUNT --disable-ssl
 ```

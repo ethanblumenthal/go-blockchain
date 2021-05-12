@@ -13,7 +13,7 @@ import (
 func runCmd() *cobra.Command {
 	var runCmd = &cobra.Command{
 		Use:   "run",
-		Short: "Launches the gochain node and its HTTP API.",
+		Short: "Launches the GoChain node and its HTTP API.",
 		Run: func(cmd *cobra.Command, args []string) {
 			miner, _ := cmd.Flags().GetString(flagMiner)
 			sslEmail, _ := cmd.Flags().GetString(flagSSLEmail)
@@ -24,7 +24,7 @@ func runCmd() *cobra.Command {
 			bootstrapPort, _ := cmd.Flags().GetUint64(flagBootstrapPort)
 			bootstrapAcc, _ := cmd.Flags().GetString(flagBootstrapAcc)
 
-			fmt.Println("Launching gochain node and its HTTP API...")
+			fmt.Println("Launching GoChain node and its HTTP API...")
 
 			bootstrap := node.NewPeerNode(
 				bootstrapIp,
@@ -53,9 +53,9 @@ func runCmd() *cobra.Command {
 	runCmd.Flags().String(flagMiner, node.DefaultMiner, "your node's miner account to receive the block rewards")
 	runCmd.Flags().String(flagIP, node.DefaultIP, "your node's public IP to communication with other peers")
 	runCmd.Flags().Uint64(flagPort, node.HttpSSLPort, "your node's public HTTP port for communication with other peers (configurable if SSL is disabled)")
-	runCmd.Flags().String(flagBootstrapIp, node.DefaultBootstrapIp, "default bootstrap Web3Coach's server to interconnect peers")
-	runCmd.Flags().Uint64(flagBootstrapPort, node.HttpSSLPort, "default bootstrap Web3Coach's server port to interconnect peers")
-	runCmd.Flags().String(flagBootstrapAcc, node.DefaultBootstrapAcc, "default bootstrap Web3Coach's Genesis account with 1M TBB tokens")
+	runCmd.Flags().String(flagBootstrapIp, node.DefaultBootstrapIp, "default GoChain bootstrap's server to interconnect peers")
+	runCmd.Flags().Uint64(flagBootstrapPort, node.HttpSSLPort, "default GoChain bootstrap's server port to interconnect peers")
+	runCmd.Flags().String(flagBootstrapAcc, node.DefaultBootstrapAcc, "default GoChain bootstrap's Genesis account with 1M tokens")
 
 	return runCmd
 }

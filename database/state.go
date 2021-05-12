@@ -244,7 +244,7 @@ func applyTx(tx SignedTx, s *State) error {
 
 	txCost := tx.Value + TxFee
 	if tx.Value > s.Balances[tx.From] {
-		return fmt.Errorf("wrong TX. Sender '%s' balance is %d TBB. Tx cost is %d TBB", tx.From.String(), s.Balances[tx.From], txCost)
+		return fmt.Errorf("wrong TX. Sender '%s' balance is %d tokens. Tx cost is %d tokens", tx.From.String(), s.Balances[tx.From], txCost)
 	}
 
 	s.Balances[tx.From] -= txCost
