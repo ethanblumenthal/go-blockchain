@@ -14,15 +14,6 @@ const BlockReward = 100
 
 type Hash [32]byte
 
-func (h *Hash) UnmarshalText(data []byte) error {
-	_, err := hex.Decode(h[:], data)
-	return err
-}
-
-func (h Hash) Hex() string {
-	return hex.EncodeToString(h[:])
-}
-
 type Block struct {
 	Header BlockHeader `json:"header"`
 	TXs    []SignedTx  `json:"payload"`
@@ -37,25 +28,30 @@ type BlockHeader struct {
 }
 
 type BlockFS struct {
-	Key    Hash        `json:"hash"`
-	Value  Block       `json:"block"`
+	Key   Hash  `json:"hash"`
+	Value Block `json:"block"`
 }
 
-func NewBlock(parent Hash, number uint64, nonce uint32, time uint64, miner common.Address, txs []SignedTx) Block {
-	return Block{BlockHeader{parent, number, nonce, time, miner}, txs}
+func (h Hash) MarshalText() ([]byte, error) {
+	return []byte(h.Hex()), nil
 }
 
-func IsBlockHashValid(h Hash) bool {
-	return fmt.Sprintf("%x", h[0]) == "0" &&
-	fmt.Sprintf("%x", h[1]) == "0" &&
-	fmt.Sprintf("%x", h[2]) == "0" &&
-	fmt.Sprintf("%x", h[3]) != "0"
+func (h *Hash) UnmarshalText(data []byte) error {
+	_, err := hex.Decode(h[:], data)
+	return err
 }
 
+func (h Hash) Hex() string {
+	return hex.EncodeToString(h[:])
+}
 
 func (h Hash) IsEmpty() bool {
 	emptyHash := Hash{}
 	return bytes.Equal(emptyHash[:], h[:])
+}
+
+func NewBlock(parent Hash, number uint64, nonce uint32, time uint64, miner common.Address, txs []SignedTx) Block {
+	return Block{BlockHeader{parent, number, nonce, time, miner}, txs}
 }
 
 func (b Block) Hash() (Hash, error) {
@@ -65,4 +61,11 @@ func (b Block) Hash() (Hash, error) {
 	}
 
 	return sha256.Sum256(blockJson), nil
+}
+
+func IsBlockHashValid(hash Hash) bool {
+	return fmt.Sprintf("%x", hash[0]) == "0" &&
+		fmt.Sprintf("%x", hash[1]) == "0" &&
+		fmt.Sprintf("%x", hash[2]) == "0" &&
+		fmt.Sprintf("%x", hash[3]) != "0"
 }
