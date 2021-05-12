@@ -9,7 +9,7 @@ import (
 const Major = "1"
 const Minor = "0"
 const Fix = "0"
-const Verbal = "Decentralized Auth"
+const Verbal = "beta GoChain Ledger"
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
