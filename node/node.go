@@ -119,6 +119,7 @@ func (n *Node) serveHttp(ctx context.Context, isSSLDisabled bool, sslEmail strin
 	})
 
 	handler.HandleFunc("/tx/add", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println("Hi")
 		txAddHandler(w, r, n)
 	})
 

@@ -18,8 +18,8 @@ import (
 
 const testKsAccount1 = "0x3eb92807f1f91a8d4d85bc908c7f86dcddb1df57"
 const testKsAccount2 = "0x6fdc0d8d15ae6b4ebf45c52fd2aafbcbb19a65c8"
-const testKsAccount1File = "test_account1--3eb92807f1f91a8d4d85bc908c7f86dcddb1df57"
-const testKsAccount2File = "test_account2--6fdc0d8d15ae6b4ebf45c52fd2aafbcbb19a65c8"
+const testKsAccount1File = "test_account1"
+const testKsAccount2File = "test_account2"
 const testKsAccountsPwd = "security123"
 
 func TestNode_Run(t *testing.T) {

@@ -130,9 +130,9 @@ curl http://localhost:8080/balances/list | jq
 curl --location --request POST 'http://localhost:8080/tx/add' \
 --header 'Content-Type: application/json' \
 --data-raw '{
-	"from": "0x22ba1f80452e6220c7cc6ea2d1e3eeddac5f694a",
+	"from": "0x22ba1F80452E6220c7cc6ea2D1e3EEDDaC5F694A",
 	"from_pwd": "security123",
-	"to": "0x6fdc0d8d15ae6b4ebf45c52fd2aafbcbb19a65c8",
+	"to": "0x26F046f26aED65BFf31386c5b6bDe1557E98C584",
 	"value": 100
 }'
 ```

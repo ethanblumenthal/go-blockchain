@@ -134,7 +134,7 @@ func addPeerHandler(w http.ResponseWriter, r *http.Request, node *Node) {
 
 	peer := NewPeerNode(peerIP, peerPort, false, database.NewAccount(minerRaw), true)
 	node.AddPeer(peer)
-	fmt.Printf("Peer '%s' was added into KnownPeers\n", peer.TcpAddress())
+	fmt.Printf("Peer '%s' was added into known peers\n", peer.TcpAddress())
 
 	writeRes(w, AddPeerRes{true, ""})
 }
