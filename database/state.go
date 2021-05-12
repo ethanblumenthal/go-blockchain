@@ -94,7 +94,7 @@ func (s *State) AddBlocks(blocks []Block) error {
 }
 
 func (s *State) AddBlock(b Block) (Hash, error) {
-	pendingState := s.copy()
+	pendingState := s.Copy()
 
 	err := applyBlock(b, &pendingState)
 	if err != nil {
@@ -156,7 +156,7 @@ func (s *State) Close() error {
 	return s.dbFile.Close()
 }
 
-func (s *State) copy() State {
+func (s *State) Copy() State {
 	c := State{}
 	c.hasGenesisBlock = s.hasGenesisBlock
 	c.latestBlock = s.latestBlock

@@ -7,17 +7,16 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/caddyserver/certmagic"
 	"github.com/ethanblumenthal/golang-blockchain/database"
-	"github.com/ethanblumenthal/golang-blockchain/wallet"
 	"github.com/ethereum/go-ethereum/common"
 )
 
 const DefaultBootstrapIp = "127.0.0.1"
-const DefaultBootstrapPort = 8080
-const DefaultBootstrapAcc = wallet.Account1
+const DefaultBootstrapAcc = "0x09ee50f2f37fcba1845de6fe5c762e83e65e755c"
 const DefaultMiner = "0x0000000000000000000000000000000000000000"
 const DefaultIP = "127.0.0.1"
-const DefaultHTTPPort = 8080
+const HttpSSLPort = 443
 const endpointStatus = "/node/status"
 
 const endpointSync = "/node/sync"
@@ -41,6 +40,7 @@ type Node struct {
 	dataDir         string
 	info            PeerNode
 	state           *database.State
+	pendingState    *database.State
 	knownPeers      map[string]PeerNode
 	pendingTXs      map[string]database.SignedTx
 	archivedTXs     map[string]database.SignedTx
@@ -73,7 +73,7 @@ func NewPeerNode(ip string, port uint64, isBootstrap bool, account common.Addres
 	return PeerNode{ip, port, isBootstrap, account, connected}
 }
 
-func (n *Node) Run(ctx context.Context) error {
+func (n *Node) Run(ctx context.Context, isSSLDisabled bool, sslEmail string) error {
 	fmt.Println(fmt.Sprintf("Listening on: %s:%d", n.info.IP, n.info.Port))
 
 	state, err := database.NewStateFromDisk(n.dataDir)
@@ -84,6 +84,9 @@ func (n *Node) Run(ctx context.Context) error {
 
 	n.state = state
 
+	pendingState := state.Copy()
+	n.pendingState = &pendingState
+
 	fmt.Println("Blockchain state:")
 	fmt.Printf("\t- height: %d\n", n.state.LatestBlock().Header.Number)
 	fmt.Printf("\t- hash: %s\n", n.state.LatestBlockHash().Hex())
@@ -91,44 +94,55 @@ func (n *Node) Run(ctx context.Context) error {
 	go n.sync(ctx)
 	go n.mine(ctx)
 
-	http.HandleFunc("/balances/list", func(w http.ResponseWriter, r *http.Request) {
-		listBalancesHandler(w, r, state)
-	})
-
-	http.HandleFunc("/tx/add", func(w http.ResponseWriter, r *http.Request) {
-		txAddHandler(w, r, n)
-	})
-
-	http.HandleFunc(endpointStatus, func(w http.ResponseWriter, r *http.Request) {
-		statusHandler(w, r, n)
-	})
-
-	http.HandleFunc(endpointSync, func(w http.ResponseWriter, r *http.Request) {
-		syncHandler(w, r, n)
-	})
-
-	http.HandleFunc(endpointAddPeer, func(w http.ResponseWriter, r *http.Request) {
-		addPeerHandler(w, r, n)
-	})
-
-	server := &http.Server{Addr: fmt.Sprintf(":%d", n.info.Port)}
-
-	go func() {
-		<-ctx.Done()
-		_ = server.Close()
-	}()
-
-	err = server.ListenAndServe()
-	// This shouldn't be an error
-	if err != http.ErrServerClosed {
-		return err
-	}
-
-	return nil
+	return n.serveHttp(ctx, isSSLDisabled, sslEmail)
 }
 
 func (n *Node) LatestBlockHash() database.Hash {
 	return n.state.LatestBlockHash()
+}
+
+func (n *Node) serveHttp(ctx context.Context, isSSLDisabled bool, sslEmail string) error {
+	handler := http.NewServeMux()
+
+	handler.HandleFunc("/balances/list", func(w http.ResponseWriter, r *http.Request) {
+		listBalancesHandler(w, r, n.state)
+	})
+
+	handler.HandleFunc("/tx/add", func(w http.ResponseWriter, r *http.Request) {
+		txAddHandler(w, r, n)
+	})
+
+	handler.HandleFunc(endpointStatus, func(w http.ResponseWriter, r *http.Request) {
+		statusHandler(w, r, n)
+	})
+
+	handler.HandleFunc(endpointSync, func(w http.ResponseWriter, r *http.Request) {
+		syncHandler(w, r, n)
+	})
+
+	handler.HandleFunc(endpointAddPeer, func(w http.ResponseWriter, r *http.Request) {
+		addPeerHandler(w, r, n)
+	})
+
+	if isSSLDisabled {
+		server := &http.Server{Addr: fmt.Sprintf(":%d", n.info.Port)}
+
+		go func() {
+			<-ctx.Done()
+			_ = server.Close()
+		}()
+	
+		err := server.ListenAndServe()
+		// This shouldn't be an error
+		if err != http.ErrServerClosed {
+			return err
+		}
+	
+		return nil
+	} else {
+		certmagic.DefaultACME.Email = sslEmail
+		return certmagic.HTTPS([]string{n.info.IP}, handler)
+	}
 }
 
 func (n *Node) mine(ctx context.Context) error {

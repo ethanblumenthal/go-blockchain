@@ -11,6 +11,8 @@ import (
 const flagKeystoreFile = "keystore"
 const flagDataDir = "datadir"
 const flagMiner = "miner"
+const flagSSLEmail = "ssl-email"
+const flagDisableSSL = "disable-ssl"
 const flagIP = "ip"
 const flagPort = "port"
 const flagBootstrapAcc = "bootstrap-account"
