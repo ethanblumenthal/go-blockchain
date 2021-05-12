@@ -8,23 +8,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const flagKeystoreFile = "keystore"
 const flagDataDir = "datadir"
+const flagMiner = "miner"
 const flagIP = "ip"
 const flagPort = "port"
-const flagMiner = "miner"
-const flagKeystoreFile = "keystore"
 const flagBootstrapAcc = "bootstrap-account"
 const flagBootstrapIp = "bootstrap-ip"
 const flagBootstrapPort = "bootstrap-port"
 
 func main() {
 	var gochainCmd = &cobra.Command{
-		Use: "gochain",
+		Use:   "gochain",
 		Short: "Golang blockchain command line interface (CLI).",
 		Run: func(cmd *cobra.Command, args []string) {},
 	}
 
-	gochainCmd.AddCommand(migrateCmd())
 	gochainCmd.AddCommand(versionCmd)
 	gochainCmd.AddCommand(balancesCmd())
 	gochainCmd.AddCommand(walletCmd())
@@ -43,7 +42,7 @@ func addDefaultRequiredFlags(cmd *cobra.Command) {
 }
 
 func addKeystoreFlag(cmd *cobra.Command) {
-	cmd.Flags().String(flagDataDir, "", "Absolute path to the encrypted keystore file")
+	cmd.Flags().String(flagKeystoreFile, "", "Absolute path to the encrypted keystore file")
 	cmd.MarkFlagRequired(flagKeystoreFile)
 }
 
@@ -53,5 +52,5 @@ func getDataDirFromCmd(cmd *cobra.Command) string {
 }
 
 func incorrectUsageErr() error {
-	return fmt.Errorf(("incorrect usage"))
+	return fmt.Errorf("incorrect usage")
 }

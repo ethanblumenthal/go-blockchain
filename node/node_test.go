@@ -48,23 +48,11 @@ func TestNode_Run(t *testing.T) {
 }
 
 func TestNode_Mining(t *testing.T) {
-	acc1 := database.NewAccount(testKsAccount1)
-	acc2 := database.NewAccount(testKsAccount2)
-
-	genesisBalances := make(map[common.Address]uint)
-	genesisBalances[acc1] = 1000000
-	genesis := database.Genesis{Balances: genesisBalances}
-	genesisJson, err := json.Marshal(genesis)
+	dataDir, acc1, acc2, err := setupTestNodeDir()
 	if err != nil {
-		t.Fatal(err)
+		t.Error(err)
 	}
 
-	dataDir, err := getTestDataDirPath()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = database.InitDataDirIfNotExists(dataDir, genesisJson)
 	defer fs.RemoveDir(dataDir)
 
 	err = copyKeystoreFilesIntoTestDataDirPath(dataDir)
@@ -73,7 +61,7 @@ func TestNode_Mining(t *testing.T) {
 	}
 
 	// Construct a new node instance where the TX originated from
-	nInfo := NewPeerNode("127.0.0.1", 8085, false, database.NewAccount(""), true)
+	nInfo := NewPeerNode("127.0.0.1", 8085, false, acc2, true)
 
 	// Construct a new node instance and configure Ethan as a miner
 	n := New(dataDir, nInfo.IP, nInfo.Port, acc1, nInfo)
@@ -84,7 +72,7 @@ func TestNode_Mining(t *testing.T) {
 	// Schedule a new TX 3 seconds from now in a separate thread
 	go func() {
 		time.Sleep(time.Second * miningIntervalSeconds / 3)
-		tx := database.NewTx(acc1, acc2, 1, "")
+		tx := database.NewTx(acc1, acc2, 1, 1, "")
 
 		signedTx, err := wallet.SignTxWithKeystoreAccount(tx, acc1, testKsAccountsPwd, wallet.GetKeystoreDirPath(dataDir))
 		if err != nil {
@@ -100,7 +88,7 @@ func TestNode_Mining(t *testing.T) {
 	go func() {
 		time.Sleep(time.Second * miningIntervalSeconds + 2)
 
-		tx := database.NewTx(acc1, acc2, 2, "")
+		tx := database.NewTx(acc1, acc2, 2, 2, "")
 		signedTx, err := wallet.SignTxWithKeystoreAccount(tx, acc1, testKsAccountsPwd, wallet.GetKeystoreDirPath(dataDir))
 		if err != nil {
 			t.Error(err)
@@ -168,8 +156,8 @@ func TestNode_MiningStopsOnNewSyncedBlock(t *testing.T) {
 	// Allow the mining to run for 30mins at most
 	ctx, closeNode := context.WithTimeout(context.Background(), time.Minute*30)
 
-	tx1 := database.NewTx(acc1, acc2, 1, "")
-	tx2 := database.NewTx(acc1, acc2, 2, "")
+	tx1 := database.NewTx(acc1, acc2, 1, 1, "")
+	tx2 := database.NewTx(acc1, acc2, 2, 2, "")
 
 	signedTx1, err := wallet.SignTxWithKeystoreAccount(tx1, acc1, testKsAccountsPwd, wallet.GetKeystoreDirPath(dataDir))
 	if err != nil {
@@ -313,7 +301,8 @@ func TestNode_ForgedTx(t *testing.T) {
 	acc1PeerNode := NewPeerNode("127.0.0.1", 8085, false, acc1, true)
 
 	txValue := uint(5)
-	tx := database.NewTx(acc1, acc2, txValue, "")
+	txNonce := uint(1)
+	tx := database.NewTx(acc1, acc2, txValue, txNonce, "")
 
 	// Create a valid TX transferring 5 tokens from acc1 to acc2
 	validSignedTx, err := wallet.SignTxWithKeystoreAccount(tx, acc1, testKsAccountsPwd, wallet.GetKeystoreDirPath(dataDir))
@@ -372,7 +361,8 @@ func TestNode_ReplayedTx(t *testing.T) {
 	acc2PeerNode := NewPeerNode("127.0.0.1", 8086, false, acc2, true)
 
 	txValue := uint(5)
-	tx := database.NewTx(acc1, acc2, txValue, "")
+	txNonce := uint(1)
+	tx := database.NewTx(acc1, acc2, txValue, txNonce, "")
 
 	signedTx, err := wallet.SignTxWithKeystoreAccount(tx, acc1, testKsAccountsPwd, wallet.GetKeystoreDirPath(dataDir))
 	if err != nil {

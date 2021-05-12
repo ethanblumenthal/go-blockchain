@@ -20,6 +20,7 @@ type Tx struct {
 	From  common.Address `json:"from"`
 	To    common.Address `json:"to"`
 	Value uint           `json:"value"`
+	Nonce uint           `json:"nonce"`
 	Data  string         `json:"data"`
 	Time  uint64         `json:"time"`
 }
@@ -29,8 +30,8 @@ type SignedTx struct {
 	Sig []byte `json:"signature"`
 }
 
-func NewTx(from common.Address, to common.Address, value uint, data string) Tx {
-	return Tx{from, to, value, data, uint64(time.Now().Unix())}
+func NewTx(from common.Address, to common.Address, value uint, nonce uint, data string) Tx {
+	return Tx{from, to, value, nonce, data, uint64(time.Now().Unix())}
 }
 
 func NewSignedTx(tx Tx, sig []byte) SignedTx {

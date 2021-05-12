@@ -16,7 +16,7 @@ import (
 func walletCmd() *cobra.Command {
 	var walletCmd = &cobra.Command{
 		Use:   "wallet",
-		Short: "Manages accounts, keys, cryptography.",
+		Short: "Manages blockchain accounts and keys.",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			return incorrectUsageErr()
 		},
@@ -25,24 +25,27 @@ func walletCmd() *cobra.Command {
 	}
 
 	walletCmd.AddCommand(walletNewAccountCmd())
+	walletCmd.AddCommand(walletPrintPrivKeyCmd())
+
 	return walletCmd
 }
 
 func walletNewAccountCmd() *cobra.Command {
 	var cmd = &cobra.Command{
 		Use:   "new-account",
-		Short: "Creates a new account with a new set of private and public keys.",
+		Short: "Creates a new account with a new set of a elliptic-curve Private + Public keys.",
 		Run: func(cmd *cobra.Command, args []string) {
 			password := getPassPhrase("Please enter a password to encrypt the new wallet:", true)
 			dataDir := getDataDirFromCmd(cmd)
 
-			account, err := wallet.NewKeystoreAccount(dataDir, password)
+			acc, err := wallet.NewKeystoreAccount(dataDir, password)
 			if err != nil {
 				fmt.Println(err)
 				os.Exit(1)
 			}
 
-			fmt.Printf("New account created: %s\n", account.Hex())
+			fmt.Printf("New account created: %s\n", acc.Hex())
+			fmt.Printf("Saved in: %s\n", wallet.GetKeystoreDirPath(dataDir))
 		},
 	}
 
@@ -53,32 +56,30 @@ func walletNewAccountCmd() *cobra.Command {
 
 func walletPrintPrivKeyCmd() *cobra.Command {
 	var cmd = &cobra.Command{
-		Use: "pk-print",
-		Short: "Unlocks keystore file and prints the public and private keys.",
+		Use:   "pk-print",
+		Short: "Unlocks keystore file and prints the Private + Public keys.",
 		Run: func(cmd *cobra.Command, args []string) {
 			ksFile, _ := cmd.Flags().GetString(flagKeystoreFile)
-			password := getPassPhrase("Please enter password to decrypt the keystore file:", true)
+			password := getPassPhrase("Please enter a password to decrypt the wallet:", false)
 
-			// Load the symettrically encrypted key from disk
 			keyJson, err := ioutil.ReadFile(ksFile)
 			if err != nil {
 				fmt.Println(err.Error())
 				os.Exit(1)
 			}
 
-			// Decrypt the private key file using your password
 			key, err := keystore.DecryptKey(keyJson, password)
 			if err != nil {
 				fmt.Println(err.Error())
 				os.Exit(1)
 			}
 
-			// Print it to the terminal
 			spew.Dump(key)
 		},
 	}
 
 	addKeystoreFlag(cmd)
+
 	return cmd
 }
 
@@ -89,13 +90,12 @@ func getPassPhrase(prompt string, confirmation bool) string {
 	}
 
 	if confirmation {
-		confirm, err := console.Stdin.PromptPassword("Repeat")
+		confirm, err := console.Stdin.PromptPassword("Repeat password: ")
 		if err != nil {
-			utils.Fatalf("Failed to read password confirmation %v", err)
+			utils.Fatalf("Failed to read password confirmation: %v", err)
 		}
-
 		if password != confirm {
-			utils.Fatalf("Password do not match")
+			utils.Fatalf("Passwords do not match")
 		}
 	}
 
